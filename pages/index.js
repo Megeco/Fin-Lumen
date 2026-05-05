@@ -4,10 +4,10 @@ export default function Home() {
   const [stocks, setStocks] = useState([]);
 
   const fetchStocks = async () => {
-    const res = await fetch("/api/get-stocks");
-    const data = await res.json();
-    setStocks(data);
-  };
+  const res = await fetch("/api/get-stocks");
+  const data = await res.json();
+  setStocks(data || []);
+};
 
   const updateStock = async (name) => {
     await fetch("/api/update-stock", {
