@@ -5,12 +5,15 @@ import { decisionEngine } from "../../lib/decision";
 export default async function handler(req, res) {
   const { name } = JSON.parse(req.body);
 
-  let stock = db.get(name);
-
-  const scores = await computeScores(stock);
+  const scores = await computeScores({ name });
   const decision = decisionEngine(scores);
 
-  db.update(name, { ...scores, ...decision });
+  await db.upsert({
+    name,
+    ...scores,
+    ...decision,
+    updated_at: new Date()
+  });
 
   res.status(200).json({ success: true });
 }
