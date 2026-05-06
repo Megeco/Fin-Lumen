@@ -13,14 +13,14 @@ export default async function handler(req, res) {
       .select('*');
 
     if (error) {
-      console.error(error);
+      console.error("FETCH ERROR:", error);
       return res.status(500).json({ error });
     }
 
     for (let stock of stocks) {
       const result = runAstroEngine(stock.name);
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('stocks')
         .update({
           at: result.score,
@@ -29,17 +29,21 @@ export default async function handler(req, res) {
           action_plan: result.action_plan,
           position_action: result.position_action,
           astro_window: result.astro_window,
-          pmp: result.pmp,
+          pmp_forecast: result.pmp, // ✅ FIXED HERE
           signal: result.signal,
           updated_at: new Date()
         })
         .eq('name', stock.name);
+
+      if (updateError) {
+        console.error("UPDATE ERROR:", stock.name, updateError);
+      }
     }
 
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("SERVER ERROR:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
