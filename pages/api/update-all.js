@@ -6,6 +6,14 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+// POSITION SIZING MAP (NEW)
+const positionMap = {
+  ADD: "70–90%",
+  HOLD: "15–40%",
+  TRIM: "10–30%",
+  EXIT: "0–10%"
+};
+
 export default async function handler(req, res) {
   try {
     const { data: stocks, error } = await supabase
@@ -25,12 +33,16 @@ export default async function handler(req, res) {
         .update({
           at: result.score,
           dz: result.score,
+
           week_bias: result.week_bias,
           action_plan: result.action_plan,
           position_action: result.position_action,
+          positioning: positionMap[result.position_action] || "15–40%",
+
           astro_window: result.astro_window,
-          pmp_forecast: result.pmp, // ✅ FIXED HERE
+          pmp_forecast: result.pmp,
           signal: result.signal,
+
           updated_at: new Date()
         })
         .eq('name', stock.name);
