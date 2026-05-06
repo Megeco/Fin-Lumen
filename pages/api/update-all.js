@@ -3,6 +3,7 @@ import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
 import { runCycleEngine } from '../../lib/cycleEngine';
 import { getEarlySignal } from '../../lib/earlyWarning';
+import { getForwardSignal } from '../../lib/forwardSignal'; // 🔥 NEW
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -59,14 +60,21 @@ export default async function handler(req, res) {
         finalAction = "HOLD";
       }
 
-      // ⚡ Directional Early Warning (USES FINAL ACTION)
+      // ⚡ Early Warning
       const earlySignal = getEarlySignal({
         position_action: finalAction,
         astro_window: result.astro_window,
         pmp: result.pmp
       });
 
-      // 4. Update DB
+      // 🔮 Forward (Next Week) Signal
+      const forwardSignal = getForwardSignal({
+        position_action: finalAction,
+        astro_window: result.astro_window,
+        pmp: result.pmp
+      });
+
+      // 4. Update DB (USE ID — important fix)
       const { error: updateError } = await supabase
         .from('stocks')
         .update({
@@ -83,18 +91,22 @@ export default async function handler(req, res) {
           // 🔥 Long-term conviction
           long_term: cycle.long_term,
 
-          // ⚡ Early warning signal
+          // ⚡ Early signal
           early_signal: earlySignal,
 
-          // 🧭 Macro context (clean language)
+          // 🔮 Forward signal
+          next_week_signal: forwardSignal,
+
+          // 🧭 Macro context
           phase:
             macro.regime === "RISK OFF" ? "DEFENSIVE" :
             macro.regime === "NEUTRAL" ? "CAUTIOUS" :
             "NORMAL",
 
-          updated_at: new Date()
+          // ⏱ Clean timestamp
+          updated_at: new Date().toISOString()
         })
-        .eq('name', stock.name);
+        .eq('id', stock.id); // ✅ CRITICAL FIX
 
       if (updateError) {
         console.error("UPDATE ERROR:", stock.name, updateError);
