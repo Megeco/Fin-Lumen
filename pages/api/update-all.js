@@ -1,3 +1,4 @@
+import { runCycleEngine } from '../../lib/cycleEngine';
 import { createClient } from '@supabase/supabase-js';
 import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
@@ -13,6 +14,8 @@ const positionMap = {
   TRIM: "10–30%",
   EXIT: "0–10%"
 };
+
+const cycle = runCycleEngine(stock.name);
 
 export default async function handler(req, res) {
   try {
@@ -35,9 +38,9 @@ export default async function handler(req, res) {
       }
 
       // 🔥 LONG TERM OVERRIDE (ONLY TRUE EXIT CONDITION)
-      if (stock.long_term === "EXIT") {
-        finalAction = "EXIT";
-      }
+      if (cycle.long_term === "EXIT") {
+  finalAction = "EXIT";
+}
 
       // 🔥 MACRO SOFT FILTER
       if (macro.regime === "RISK OFF" && finalAction === "ADD") {
