@@ -10,7 +10,10 @@ export default function Home() {
   };
 
   const updateAll = async () => {
-    await fetch("/api/update-all");
+    await fetch("/api/update-all", {
+      method: "GET",
+      cache: "no-store"
+    });
     fetchStocks();
   };
 
@@ -34,10 +37,12 @@ export default function Home() {
             <th>PMP</th>
             <th>Signal</th>
             <th>Position Action</th>
-            <th>Early Signal</th> {/* 🔥 NEW COLUMN */}
+            <th>Early Signal</th>
+            <th>Next Week</th> {/* 🔥 NEW COLUMN */}
             <th>Updated</th>
           </tr>
         </thead>
+
         <tbody>
           {stocks.map((s) => (
             <tr key={s.name}>
@@ -49,7 +54,8 @@ export default function Home() {
               <td>{s.pmp_forecast || "-"}</td>
               <td>{s.signal || "-"}</td>
               <td>{s.position_action || "-"}</td>
-              <td>{s.early_signal || "NONE"}</td> {/* 🔥 DISPLAY */}
+              <td>{s.early_signal || "NONE"}</td>
+              <td>{s.next_week_signal || "STABLE"}</td> {/* 🔥 DISPLAY */}
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
