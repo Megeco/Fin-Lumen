@@ -33,6 +33,7 @@ export default function Home() {
             <th>Astro Window</th>
             <th>PMP</th>
             <th>Signal</th>
+            <th>Position Action</th>
             <th>Updated</th>
           </tr>
         </thead>
@@ -46,6 +47,7 @@ export default function Home() {
               <td>{s.astro_window}</td>
               <td>{s.pmp_forecast}</td>
               <td>{s.signal}</td>
+              <td>{s.position_action}</td>
               <td>{new Date(s.updated_at).toLocaleString()}</td>
             </tr>
           ))}
