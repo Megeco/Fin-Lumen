@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { runAstroEngine } from '../../lib/astroEngine';
+import { runMacroEngine } from '../../lib/macroEngine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
 
-// POSITION SIZING MAP (NEW)
 const positionMap = {
   ADD: "70–90%",
   HOLD: "15–40%",
@@ -25,8 +25,31 @@ export default async function handler(req, res) {
       return res.status(500).json({ error });
     }
 
+    // 🔮 GET MACRO FIRST (same for all stocks)
+    const macro = runMacroEngine();
+
     for (let stock of stocks) {
-      const result = runAstroEngine(stock.name);
+      let result = runAstroEngine(stock.name);
+
+      // ⚠️ MACRO OVERRIDE LOGIC
+
+      if (macro.regime === "RISK OFF") {
+        // kill aggression
+        if (result.position_action === "ADD") {
+          result.position_action = "HOLD";
+          result.action_plan = "WAIT";
+          result.signal = "HOLD";
+        }
+      }
+
+      if (macro.regime === "NEUTRAL") {
+        // reduce aggression slightly
+        if (result.position_action === "ADD") {
+          result.position_action = "HOLD";
+          result.action_plan = "STAGGER";
+          result.signal = "BUILD";
+        }
+      }
 
       const { error: updateError } = await supabase
         .from('stocks')
@@ -43,6 +66,9 @@ export default async function handler(req, res) {
           pmp_forecast: result.pmp,
           signal: result.signal,
 
+          // 🔥 STORE MACRO CONTEXT
+          phase: macro.regime,
+
           updated_at: new Date()
         })
         .eq('name', stock.name);
@@ -52,7 +78,10 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+      macro: macro
+    });
 
   } catch (err) {
     console.error("SERVER ERROR:", err);
