@@ -4,9 +4,13 @@ export default function Home() {
   const [stocks, setStocks] = useState([]);
 
   const fetchStocks = async () => {
-    const res = await fetch("/api/get-stocks");
-    const data = await res.json();
-    setStocks(data || []);
+    try {
+      const res = await fetch("/api/get-stocks");
+      const data = await res.json();
+      setStocks(data || []);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
   };
 
   const updateAll = async () => {
@@ -37,18 +41,24 @@ export default function Home() {
             <th>Updated</th>
           </tr>
         </thead>
+
         <tbody>
           {stocks.map((s) => (
             <tr key={s.name}>
               <td>{s.name}</td>
-              <td>{s.week_bias}</td>
-              <td>{s.action_plan}</td>
-              <td>{s.positioning}</td>
-              <td>{s.astro_window}</td>
-              <td>{s.pmp_forecast}</td>
-              <td>{s.signal}</td>
-              <td>{s.position_action}</td>
-              <td>{new Date(s.updated_at).toLocaleString()}</td>
+              <td>{s.week_bias || "-"}</td>
+              <td>{s.action_plan || "-"}</td>
+              <td>{s.positioning || "-"}</td>
+              <td>{s.astro_window || "-"}</td>
+              <td>{s.pmp || "-"}</td> {/* ✅ FIXED */}
+              <td>{s.signal || "-"}</td>
+              <td>{s.position_action || "-"}</td>
+
+              <td>
+                {s.updated_at
+                  ? new Date(s.updated_at).toLocaleString()
+                  : "-"}
+              </td> {/* ✅ SAFE DATE */}
             </tr>
           ))}
         </tbody>
