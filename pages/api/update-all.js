@@ -20,71 +20,60 @@ export default async function handler(req, res) {
       .from('stocks')
       .select('*');
 
-    if (error) {
-      console.error("FETCH ERROR:", error);
-      return res.status(500).json({ error });
-    }
+    if (error) return res.status(500).json({ error });
 
-    // 🔮 GET MACRO FIRST (same for all stocks)
     const macro = runMacroEngine();
 
     for (let stock of stocks) {
       let result = runAstroEngine(stock.name);
 
-      // ⚠️ MACRO OVERRIDE LOGIC
+      let finalAction = result.position_action;
 
-      if (macro.regime === "RISK OFF") {
-        // kill aggression
-        if (result.position_action === "ADD") {
-          result.position_action = "HOLD";
-          result.action_plan = "WAIT";
-          result.signal = "HOLD";
-        }
+      // 🔥 REMOVE WEEKLY EXIT (convert to TRIM)
+      if (finalAction === "EXIT") {
+        finalAction = "TRIM";
       }
 
-      if (macro.regime === "NEUTRAL") {
-        // reduce aggression slightly
-        if (result.position_action === "ADD") {
-          result.position_action = "HOLD";
-          result.action_plan = "STAGGER";
-          result.signal = "BUILD";
-        }
+      // 🔥 LONG TERM OVERRIDE (ONLY TRUE EXIT CONDITION)
+      if (stock.long_term === "EXIT") {
+        finalAction = "EXIT";
       }
 
-      const { error: updateError } = await supabase
+      // 🔥 MACRO SOFT FILTER
+      if (macro.regime === "RISK OFF" && finalAction === "ADD") {
+        finalAction = "HOLD";
+      }
+
+      if (macro.regime === "NEUTRAL" && finalAction === "ADD") {
+        finalAction = "HOLD";
+      }
+
+      await supabase
         .from('stocks')
         .update({
-          at: result.score,
-          dz: result.score,
-
           week_bias: result.week_bias,
           action_plan: result.action_plan,
-          position_action: result.position_action,
-          positioning: positionMap[result.position_action] || "15–40%",
+
+          position_action: finalAction,
+          positioning: positionMap[finalAction] || "15–40%",
 
           astro_window: result.astro_window,
           pmp_forecast: result.pmp,
           signal: result.signal,
 
-          // 🔥 STORE MACRO CONTEXT
-          phase: macro.regime,
+          phase:
+            macro.regime === "RISK OFF" ? "DEFENSIVE" :
+            macro.regime === "NEUTRAL" ? "CAUTIOUS" :
+            "NORMAL",
 
           updated_at: new Date()
         })
         .eq('name', stock.name);
-
-      if (updateError) {
-        console.error("UPDATE ERROR:", stock.name, updateError);
-      }
     }
 
-    return res.status(200).json({
-      success: true,
-      macro: macro
-    });
+    return res.status(200).json({ success: true });
 
   } catch (err) {
-    console.error("SERVER ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 }
