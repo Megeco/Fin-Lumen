@@ -4,13 +4,9 @@ export default function Home() {
   const [stocks, setStocks] = useState([]);
 
   const fetchStocks = async () => {
-    try {
-      const res = await fetch("/api/get-stocks");
-      const data = await res.json();
-      setStocks(data || []);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
+    const res = await fetch("/api/get-stocks");
+    const data = await res.json();
+    setStocks(data || []);
   };
 
   const updateAll = async () => {
@@ -48,17 +44,19 @@ export default function Home() {
               <td>{s.name}</td>
               <td>{s.week_bias || "-"}</td>
               <td>{s.action_plan || "-"}</td>
+
+              {/* ✅ THIS WAS THE BUG */}
               <td>{s.positioning || "-"}</td>
+
               <td>{s.astro_window || "-"}</td>
-              <td>{s.pmp_forecast || "-"}</td> {/* ✅ FIXED */}
+              <td>{s.pmp_forecast || "-"}</td>
               <td>{s.signal || "-"}</td>
               <td>{s.position_action || "-"}</td>
-
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
                   : "-"}
-              </td> {/* ✅ SAFE DATE */}
+              </td>
             </tr>
           ))}
         </tbody>
