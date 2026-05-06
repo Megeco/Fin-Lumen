@@ -1,7 +1,7 @@
-import { runCycleEngine } from '../../lib/cycleEngine';
 import { createClient } from '@supabase/supabase-js';
 import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
+import { runCycleEngine } from '../../lib/cycleEngine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -15,34 +15,39 @@ const positionMap = {
   EXIT: "0–10%"
 };
 
-const cycle = runCycleEngine(stock.name);
-
 export default async function handler(req, res) {
   try {
+    // 1. Fetch stocks
     const { data: stocks, error } = await supabase
       .from('stocks')
       .select('*');
 
-    if (error) return res.status(500).json({ error });
+    if (error) {
+      console.error("FETCH ERROR:", error);
+      return res.status(500).json({ error });
+    }
 
+    // 2. Get macro once
     const macro = runMacroEngine();
 
+    // 3. Loop through each stock
     for (let stock of stocks) {
-      let result = runAstroEngine(stock.name);
+      const result = runAstroEngine(stock.name);
+      const cycle = runCycleEngine(stock.name);
 
       let finalAction = result.position_action;
 
-      // 🔥 REMOVE WEEKLY EXIT (convert to TRIM)
+      // 🔁 Convert weekly EXIT → TRIM (no churn)
       if (finalAction === "EXIT") {
         finalAction = "TRIM";
       }
 
-      // 🔥 LONG TERM OVERRIDE (ONLY TRUE EXIT CONDITION)
+      // 🧠 LONG-TERM OVERRIDE (true exit only)
       if (cycle.long_term === "EXIT") {
-  finalAction = "EXIT";
-}
+        finalAction = "EXIT";
+      }
 
-      // 🔥 MACRO SOFT FILTER
+      // 🌍 MACRO FILTER (soft control)
       if (macro.regime === "RISK OFF" && finalAction === "ADD") {
         finalAction = "HOLD";
       }
@@ -51,7 +56,8 @@ export default async function handler(req, res) {
         finalAction = "HOLD";
       }
 
-      await supabase
+      // 4. Update DB
+      const { error: updateError } = await supabase
         .from('stocks')
         .update({
           week_bias: result.week_bias,
@@ -64,6 +70,10 @@ export default async function handler(req, res) {
           pmp_forecast: result.pmp,
           signal: result.signal,
 
+          // 🔥 NEW: LONG TERM COLUMN
+          long_term: cycle.long_term,
+
+          // 🧭 Macro label (clean language)
           phase:
             macro.regime === "RISK OFF" ? "DEFENSIVE" :
             macro.regime === "NEUTRAL" ? "CAUTIOUS" :
@@ -72,11 +82,16 @@ export default async function handler(req, res) {
           updated_at: new Date()
         })
         .eq('name', stock.name);
+
+      if (updateError) {
+        console.error("UPDATE ERROR:", stock.name, updateError);
+      }
     }
 
     return res.status(200).json({ success: true });
 
   } catch (err) {
+    console.error("SERVER ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 }
