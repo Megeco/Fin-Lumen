@@ -50,7 +50,7 @@ export default function Home() {
               <td>{s.action_plan || "-"}</td>
               <td>{s.positioning || "-"}</td>
               <td>{s.astro_window || "-"}</td>
-              <td>{s.pmp || "-"}</td> {/* ✅ FIXED */}
+              <td>{s.pmp_forecast || "-"}</td> {/* ✅ FIXED */}
               <td>{s.signal || "-"}</td>
               <td>{s.position_action || "-"}</td>
 
