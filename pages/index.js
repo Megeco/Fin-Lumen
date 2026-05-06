@@ -34,24 +34,22 @@ export default function Home() {
             <th>PMP</th>
             <th>Signal</th>
             <th>Position Action</th>
+            <th>Early Signal</th> {/* 🔥 NEW COLUMN */}
             <th>Updated</th>
           </tr>
         </thead>
-
         <tbody>
           {stocks.map((s) => (
             <tr key={s.name}>
               <td>{s.name}</td>
               <td>{s.week_bias || "-"}</td>
               <td>{s.action_plan || "-"}</td>
-
-              {/* ✅ THIS WAS THE BUG */}
               <td>{s.positioning || "-"}</td>
-
               <td>{s.astro_window || "-"}</td>
               <td>{s.pmp_forecast || "-"}</td>
               <td>{s.signal || "-"}</td>
               <td>{s.position_action || "-"}</td>
+              <td>{s.early_signal || "NONE"}</td> {/* 🔥 DISPLAY */}
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
