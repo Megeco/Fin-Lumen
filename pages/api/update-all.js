@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
 import { runCycleEngine } from '../../lib/cycleEngine';
+import { getEarlySignal } from '../../lib/earlyWarning';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -32,22 +33,24 @@ export default async function handler(req, res) {
 
     // 3. Loop through each stock
     for (let stock of stocks) {
+
+      // 🔮 Core engines
       const result = runAstroEngine(stock.name);
       const cycle = runCycleEngine(stock.name);
 
       let finalAction = result.position_action;
 
-      // 🔁 Convert weekly EXIT → TRIM (no churn)
+      // 🔁 Prevent churn (weekly EXIT → TRIM)
       if (finalAction === "EXIT") {
         finalAction = "TRIM";
       }
 
-      // 🧠 LONG-TERM OVERRIDE (true exit only)
+      // 🧠 Long-term override (true exit only)
       if (cycle.long_term === "EXIT") {
         finalAction = "EXIT";
       }
 
-      // 🌍 MACRO FILTER (soft control)
+      // 🌍 Macro filter (soft control)
       if (macro.regime === "RISK OFF" && finalAction === "ADD") {
         finalAction = "HOLD";
       }
@@ -55,6 +58,13 @@ export default async function handler(req, res) {
       if (macro.regime === "NEUTRAL" && finalAction === "ADD") {
         finalAction = "HOLD";
       }
+
+      // ⚡ Directional Early Warning (USES FINAL ACTION)
+      const earlySignal = getEarlySignal({
+        position_action: finalAction,
+        astro_window: result.astro_window,
+        pmp: result.pmp
+      });
 
       // 4. Update DB
       const { error: updateError } = await supabase
@@ -70,10 +80,13 @@ export default async function handler(req, res) {
           pmp_forecast: result.pmp,
           signal: result.signal,
 
-          // 🔥 NEW: LONG TERM COLUMN
+          // 🔥 Long-term conviction
           long_term: cycle.long_term,
 
-          // 🧭 Macro label (clean language)
+          // ⚡ Early warning signal
+          early_signal: earlySignal,
+
+          // 🧭 Macro context (clean language)
           phase:
             macro.regime === "RISK OFF" ? "DEFENSIVE" :
             macro.regime === "NEUTRAL" ? "CAUTIOUS" :
