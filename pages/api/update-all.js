@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+
 import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
 import { runCycleEngine } from '../../lib/cycleEngine';
+
 import { getEarlySignal } from '../../lib/earlyWarning';
-import { getForwardSignal } from '../../lib/forwardSignal'; // 🔥 NEW
+import { getForwardSignal } from '../../lib/forwardSignal';
 import { getPressureScore } from '../../lib/pressureEngine';
 
 const supabase = createClient(
@@ -19,8 +21,10 @@ const positionMap = {
 };
 
 export default async function handler(req, res) {
+
   try {
-    // 1. Fetch stocks
+
+    // Fetch stocks
     const { data: stocks, error } = await supabase
       .from('stocks')
       .select('*');
@@ -30,62 +34,65 @@ export default async function handler(req, res) {
       return res.status(500).json({ error });
     }
 
-    // 2. Get macro once
+    // Macro regime
     const macro = runMacroEngine();
 
-    // 3. Loop through each stock
+    // Loop stocks
     for (let stock of stocks) {
 
-      // 🔮 Core engines
       const result = runAstroEngine(stock.name);
+
       const cycle = runCycleEngine(stock.name);
 
       let finalAction = result.position_action;
 
-      // 🔁 Prevent churn (weekly EXIT → TRIM)
+      // Prevent churn
       if (finalAction === "EXIT") {
         finalAction = "TRIM";
       }
 
-      // 🧠 Long-term override (true exit only)
+      // Long-term override
       if (cycle.long_term === "EXIT") {
         finalAction = "EXIT";
       }
 
-      // 🌍 Macro filter (soft control)
-      if (macro.regime === "RISK OFF" && finalAction === "ADD") {
+      // Macro filtering
+      if (
+        (macro.regime === "RISK OFF" ||
+         macro.regime === "NEUTRAL")
+         &&
+         finalAction === "ADD"
+      ) {
         finalAction = "HOLD";
       }
 
-      if (macro.regime === "NEUTRAL" && finalAction === "ADD") {
-        finalAction = "HOLD";
-      }
-
-      // ⚡ Early Warning
+      // Early signal
       const earlySignal = getEarlySignal({
         position_action: finalAction,
         astro_window: result.astro_window,
         pmp: result.pmp
       });
 
-      // 🔮 Forward (Next Week) Signal
+      // Forward signal
       const forwardSignal = getForwardSignal({
         position_action: finalAction,
         astro_window: result.astro_window,
         pmp: result.pmp
       });
 
-          const pressure = getPressureScore({
-  astro_window: result.astro_window,
-  pmp: result.pmp,
-  position_action: finalAction,
-  next_week_signal: forwardSignal
-});
-      
-      // 4. Update DB (USE ID — important fix)
+      // Pressure engine
+      const pressure = getPressureScore({
+        astro_window: result.astro_window,
+        pmp: result.pmp,
+        position_action: finalAction,
+        next_week_signal: forwardSignal
+      });
+
+      // Update database
       const { error: updateError } = await supabase
         .from('stocks')
         .update({
+
           week_bias: result.week_bias,
           action_plan: result.action_plan,
 
@@ -96,38 +103,41 @@ export default async function handler(req, res) {
           pmp_forecast: result.pmp,
           signal: result.signal,
 
-          // 🔥 Long-term conviction
           long_term: cycle.long_term,
 
-          // ⚡ Early signal
           early_signal: earlySignal,
 
-          // 🔮 Forward signal
           next_week_signal: forwardSignal,
 
           pressure_score: pressure.pressure_score,
-conviction: pressure.conviction,
-          
-          // 🧭 Macro context
-          phase:
-            macro.regime === "RISK OFF" ? "DEFENSIVE" :
-            macro.regime === "NEUTRAL" ? "CAUTIOUS" :
-            "NORMAL",
+          conviction: pressure.conviction,
 
-          // ⏱ Clean timestamp
-          updated_at: new Date().toISOString()
+          phase:
+            macro.regime === "RISK OFF"
+              ? "DEFENSIVE"
+              : macro.regime === "NEUTRAL"
+              ? "CAUTIOUS"
+              : "NORMAL",
+
+          updated_at: new Date()
+
         })
-        .eq('id', stock.id); // ✅ CRITICAL FIX
+        .eq('name', stock.name);
 
       if (updateError) {
         console.error("UPDATE ERROR:", stock.name, updateError);
       }
+
     }
 
     return res.status(200).json({ success: true });
 
   } catch (err) {
+
     console.error("SERVER ERROR:", err);
-    return res.status(500).json({ error: err.message });
+
+    return res.status(500).json({
+      error: err.message
+    });
   }
 }
