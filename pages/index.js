@@ -66,11 +66,11 @@ export default function Home() {
               <td>{s.momentum_state || "-"}</td>
               <td>{s.momentum_score ?? "-"}</td>
 
-<td>
-  {s.updated_at
-    ? new Date(s.updated_at).toLocaleString()
-    : "-"}
-</td>
+              <td>
+              {s.updated_at
+                ? new Date(s.updated_at).toLocaleString()
+                : "-"}
+            </td>
 
 <td>{s.cycle_2027 || "-"}</td>
             </tr>
