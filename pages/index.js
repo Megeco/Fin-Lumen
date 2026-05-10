@@ -44,6 +44,7 @@ export default function Home() {
             <th>Momentum</th>
             <th>M-Score</th>
             <th>Updated</th>
+            <th>2027 Cycle</th>
           </tr>
         </thead>
 
@@ -64,6 +65,7 @@ export default function Home() {
               <td>{s.conviction || "-"}</td>
               <td>{s.momentum_state || "-"}</td>
               <td>{s.momentum_score ?? "-"}</td>
+              <td>{s.cycle_2027 || "-"}</td>
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
