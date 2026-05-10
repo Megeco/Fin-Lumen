@@ -4,6 +4,7 @@ import { runMacroEngine } from '../../lib/macroEngine';
 import { runCycleEngine } from '../../lib/cycleEngine';
 import { getEarlySignal } from '../../lib/earlyWarning';
 import { getForwardSignal } from '../../lib/forwardSignal'; // 🔥 NEW
+import { getPressureScore } from '../../lib/pressureEngine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -74,6 +75,13 @@ export default async function handler(req, res) {
         pmp: result.pmp
       });
 
+          const pressure = getPressureScore({
+  astro_window: result.astro_window,
+  pmp: result.pmp,
+  position_action: finalAction,
+  next_week_signal: forwardSignal
+});
+      
       // 4. Update DB (USE ID — important fix)
       const { error: updateError } = await supabase
         .from('stocks')
@@ -97,6 +105,9 @@ export default async function handler(req, res) {
           // 🔮 Forward signal
           next_week_signal: forwardSignal,
 
+          pressure_score: pressure.pressure_score,
+conviction: pressure.conviction,
+          
           // 🧭 Macro context
           phase:
             macro.regime === "RISK OFF" ? "DEFENSIVE" :
