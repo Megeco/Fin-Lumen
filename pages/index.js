@@ -39,6 +39,8 @@ export default function Home() {
             <th>Position Action</th>
             <th>Early Signal</th>
             <th>Next Week</th> {/* 🔥 NEW COLUMN */}
+            <th>Pressure</th>
+            <th>Conviction</th>
             <th>Updated</th>
           </tr>
         </thead>
@@ -56,6 +58,8 @@ export default function Home() {
               <td>{s.position_action || "-"}</td>
               <td>{s.early_signal || "NONE"}</td>
               <td>{s.next_week_signal || "STABLE"}</td> {/* 🔥 DISPLAY */}
+              <td>{s.pressure_score || "-"}</td>
+              <td>{s.conviction || "-"}</td>
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
