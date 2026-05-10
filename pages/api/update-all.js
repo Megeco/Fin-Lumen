@@ -7,6 +7,7 @@ import { getEarlySignal } from '../../lib/earlyWarning';
 import { getNextWeekSignal } from '../../lib/nextWeekEngine';
 import { runPressureEngine } from '../../lib/pressureEngine';
 import { runMomentumEngine } from '../../lib/momentumEngine';
+import { run2027CycleEngine } from '../../lib/cycle2027Engine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -56,6 +57,7 @@ export default async function handler(req, res) {
       const result = runAstroEngine(stock.name);
       const cycle = runCycleEngine(stock.name);
       const momentum = runMomentumEngine(stock.name);
+      const cycle2027 = run2027CycleEngine(stock.name);
 
       // =========================================
       // FINAL POSITION ACTION
@@ -161,7 +163,8 @@ export default async function handler(req, res) {
 
           // Long-term thesis
           long_term: cycle.long_term,
-
+          cycle_2027: cycle2027.cycle_2027,
+          
           // Early warning
           early_signal: earlySignal,
 
