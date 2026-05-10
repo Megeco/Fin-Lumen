@@ -41,6 +41,8 @@ export default function Home() {
             <th>Next Week</th> {/* 🔥 NEW COLUMN */}
             <th>Pressure</th>
             <th>Conviction</th>
+            <th>Momentum</th>
+            <th>M-Score</th>
             <th>Updated</th>
           </tr>
         </thead>
@@ -60,6 +62,8 @@ export default function Home() {
               <td>{s.next_week_signal || "STABLE"}</td> {/* 🔥 DISPLAY */}
               <td>{s.pressure_score ?? "-"}</td>
               <td>{s.conviction || "-"}</td>
+              <td>{s.momentum_state || "-"}</td>
+              <td>{s.momentum_score ?? "-"}</td>
               <td>
                 {s.updated_at
                   ? new Date(s.updated_at).toLocaleString()
