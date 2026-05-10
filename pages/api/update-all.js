@@ -24,7 +24,10 @@ export default async function handler(req, res) {
 
   try {
 
-    // 1. Fetch stocks
+    // =========================================
+    // FETCH STOCKS
+    // =========================================
+
     const { data: stocks, error } = await supabase
       .from('stocks')
       .select('*');
@@ -34,35 +37,38 @@ export default async function handler(req, res) {
       return res.status(500).json({ error });
     }
 
-    // 2. Global macro regime
+    // =========================================
+    // GLOBAL MACRO
+    // =========================================
+
     const macro = runMacroEngine();
 
-    // 3. Process every stock
+    // =========================================
+    // PROCESS STOCKS
+    // =========================================
+
     for (let stock of stocks) {
 
-      // 🔮 Core engines
+      // -----------------------------------------
+      // CORE ENGINES
+      // -----------------------------------------
+
       const result = runAstroEngine(stock.name);
       const cycle = runCycleEngine(stock.name);
-      const pressure = runPressureEngine({
-  astro_window: result.astro_window,
-  pmp: result.pmp,
-  position_action: finalAction,
-  next_week_signal: nextWeekSignal
-});
       const momentum = runMomentumEngine(stock.name);
 
       // =========================================
-      // FINAL POSITION ACTION LOGIC
+      // FINAL POSITION ACTION
       // =========================================
 
       let finalAction = result.position_action;
 
-      // Weekly exits become trims
+      // Weekly EXIT becomes TRIM
       if (finalAction === "EXIT") {
         finalAction = "TRIM";
       }
 
-      // True long-term breakdown
+      // Long-term breakdown override
       if (cycle.long_term === "EXIT") {
         finalAction = "EXIT";
       }
@@ -120,6 +126,17 @@ export default async function handler(req, res) {
       });
 
       // =========================================
+      // PRESSURE ENGINE
+      // =========================================
+
+      const pressure = runPressureEngine({
+        astro_window: result.astro_window,
+        pmp: result.pmp,
+        position_action: finalAction,
+        next_week_signal: nextWeekSignal
+      });
+
+      // =========================================
       // DATABASE UPDATE
       // =========================================
 
@@ -153,13 +170,13 @@ export default async function handler(req, res) {
 
           // Pressure engine
           pressure_score: pressure.pressure_score,
-          conviction: conviction,
+          conviction: pressure.conviction,
 
           // Momentum engine
           momentum_state: momentum.momentum_state,
           momentum_score: momentum.momentum_score,
 
-          // Macro context
+          // Macro phase
           phase:
             macro.regime === "RISK OFF"
               ? "DEFENSIVE"
@@ -177,6 +194,10 @@ export default async function handler(req, res) {
         console.error("UPDATE ERROR:", stock.name, updateError);
       }
     }
+
+    // =========================================
+    // SUCCESS
+    // =========================================
 
     return res.status(200).json({ success: true });
 
