@@ -58,7 +58,7 @@ export default function Home() {
               <td>{s.position_action || "-"}</td>
               <td>{s.early_signal || "NONE"}</td>
               <td>{s.next_week_signal || "STABLE"}</td> {/* 🔥 DISPLAY */}
-              <td>{s.pressure_score || "-"}</td>
+              <td>{s.pressure_score ?? "-"}</td>
               <td>{s.conviction || "-"}</td>
               <td>
                 {s.updated_at
