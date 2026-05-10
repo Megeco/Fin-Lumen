@@ -4,7 +4,7 @@ import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
 import { runCycleEngine } from '../../lib/cycleEngine';
 import { getEarlySignal } from '../../lib/earlyWarning';
-import { getNextWeekSignal } from '../../lib/nextWeekEngine';
+import { getNextWeekSignal } from '../../lib/nextWeekEngine.js';
 import { runPressureEngine } from '../../lib/pressureEngine';
 import { runMomentumEngine } from '../../lib/momentumEngine';
 
