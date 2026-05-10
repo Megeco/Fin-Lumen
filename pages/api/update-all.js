@@ -43,7 +43,12 @@ export default async function handler(req, res) {
       // 🔮 Core engines
       const result = runAstroEngine(stock.name);
       const cycle = runCycleEngine(stock.name);
-      const pressure = runPressureEngine(stock.name);
+      const pressure = runPressureEngine({
+  astro_window: result.astro_window,
+  pmp: result.pmp,
+  position_action: finalAction,
+  next_week_signal: nextWeekSignal
+});
       const momentum = runMomentumEngine(stock.name);
 
       // =========================================
