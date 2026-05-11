@@ -21,6 +21,19 @@ export default function Home() {
     fetchStocks();
   }, []);
 
+
+  const recommendationColors = {
+  "FULL ATTACK": "#14532d",
+  "AGGRESSIVE ACCUMULATION": "#166534",
+  "CORE ACCUMULATION": "#16a34a",
+  "CORE HOLD": "#2563eb",
+  "STAGGERED ADD": "#06b6d4",
+  "SATELLITE TRIM": "#f59e0b",
+  "DISTRIBUTE RALLIES": "#dc2626",
+  "AVOID": "#7f1d1d",
+  "NEUTRAL": "#6b7280"
+};
+  
   return (
     <div style={{ padding: 20 }}>
       <h1>Fin-Lumen Tracker</h1>
@@ -73,7 +86,19 @@ export default function Home() {
               <td>{s.momentum_state || "-"}</td>
               <td>{s.momentum_score ?? "-"}</td>
 
-              <td>{s.recommendation || "-"}</td>
+              <td
+  style={{
+    backgroundColor:
+      recommendationColors[s.recommendation] || "#111827",
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+    borderRadius: "6px",
+    padding: "6px 10px"
+  }}
+>
+  {s.recommendation || "-"}
+</td>
 
 <td>{s.cycle_2027 || "-"}</td>
             </tr>
