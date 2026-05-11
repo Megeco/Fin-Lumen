@@ -7,13 +7,13 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
 
-  const { data, error } = await supabase
-    .from('stocks')
-    .select('*');
+  const data = `
+KPIT.NS|CORE ACCUMULATION|NEUTRAL|5
+MAZDOCK.NS|FULL ATTACK|OPEN|9
+DIXON.NS|AVOID|CLOSED|0
+LT.NS|CORE HOLD|OPEN|9
+NEWGEN.NS|CORE ACCUMULATION|OPEN|9
+`;
 
-  if (error) {
-    return res.status(500).json({ error });
-  }
-
-  return res.status(200).json(data);
+  res.status(200).send(data);
 }
