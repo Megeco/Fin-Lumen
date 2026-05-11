@@ -96,6 +96,10 @@ export default async function handler(req, res) {
         conviction = "HIGH CONVICTION";
       }
 
+      if (momentum.momentum_state === "BASE BUILDING") {
+        conviction = "BUILDING";
+      }
+      
       if (momentum.momentum_state === "CONTROLLED EXPANSION") {
         conviction = "STRONG";
       }
@@ -108,6 +112,14 @@ export default async function handler(req, res) {
         conviction = "WEAK";
       }
 
+      if (
+  cycle2027.cycle_2027 === "SUPER CYCLE LEADER" &&
+  recommendation !== "AVOID" &&
+  conviction === "WEAK"
+) {
+  conviction = "STRONG";
+} 
+      
       // =========================================
       // EARLY WARNING ENGINE
       // =========================================
