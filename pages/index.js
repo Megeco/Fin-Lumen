@@ -26,6 +26,13 @@ export default function Home() {
       <h1>Fin-Lumen Tracker</h1>
       <button onClick={updateAll}>🔄 Weekly Update</button>
 
+      <p>
+  Last Full System Update:{" "}
+  {stocks[0]?.updated_at
+    ? new Date(stocks[0].updated_at).toLocaleString()
+    : "-"}
+</p>
+
       <table border="1" cellPadding="8" style={{ marginTop: 20 }}>
         <thead>
           <tr>
@@ -43,7 +50,7 @@ export default function Home() {
             <th>Conviction</th>
             <th>Momentum</th>
             <th>M-Score</th>
-            <th>Updated</th>
+            <th>Recommendation</th>
             <th>2027 Cycle</th>
           </tr>
         </thead>
@@ -66,11 +73,7 @@ export default function Home() {
               <td>{s.momentum_state || "-"}</td>
               <td>{s.momentum_score ?? "-"}</td>
 
-              <td>
-              {s.updated_at
-                ? new Date(s.updated_at).toLocaleString()
-                : "-"}
-            </td>
+              <td>{s.recommendation || "-"}</td>
 
 <td>{s.cycle_2027 || "-"}</td>
             </tr>
