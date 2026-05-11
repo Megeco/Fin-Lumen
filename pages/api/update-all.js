@@ -144,11 +144,13 @@ export default async function handler(req, res) {
       // =========================================
 
       const recommendation = getRecommendation({
-        cycle_2027: cycle2027.cycle_2027,
-        pressure_score: pressure.pressure_score,
-        momentum_state: momentum.momentum_state,
-        position_action: finalAction
-      });
+  cycle_2027: cycle2027.cycle_2027,
+  pressure_score: pressure.pressure_score,
+  momentum_state: momentum.momentum_state,
+  position_action: finalAction,
+  astro_window: result.astro_window,
+  pmp: result.pmp
+});
 
       // =========================================
       // DATABASE UPDATE
