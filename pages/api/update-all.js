@@ -8,6 +8,7 @@ import { getNextWeekSignal } from '../../lib/nextWeekEngine';
 import { runPressureEngine } from '../../lib/pressureEngine';
 import { runMomentumEngine } from '../../lib/momentumEngine';
 import { run2027CycleEngine } from '../../lib/cycle2027Engine';
+import { getRecommendation } from '../../lib/recommendationEngine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -50,9 +51,9 @@ export default async function handler(req, res) {
 
     for (let stock of stocks) {
 
-      // -----------------------------------------
+      // =========================================
       // CORE ENGINES
-      // -----------------------------------------
+      // =========================================
 
       const result = runAstroEngine(stock.name);
       const cycle = runCycleEngine(stock.name);
@@ -139,6 +140,17 @@ export default async function handler(req, res) {
       });
 
       // =========================================
+      // RECOMMENDATION ENGINE
+      // =========================================
+
+      const recommendation = getRecommendation({
+        cycle_2027: cycle2027.cycle_2027,
+        pressure_score: pressure.pressure_score,
+        momentum_state: momentum.momentum_state,
+        position_action: finalAction
+      });
+
+      // =========================================
       // DATABASE UPDATE
       // =========================================
 
@@ -164,7 +176,10 @@ export default async function handler(req, res) {
           // Long-term thesis
           long_term: cycle.long_term,
           cycle_2027: cycle2027.cycle_2027,
-          
+
+          // Recommendation
+          recommendation: recommendation,
+
           // Early warning
           early_signal: earlySignal,
 
@@ -173,7 +188,7 @@ export default async function handler(req, res) {
 
           // Pressure engine
           pressure_score: pressure.pressure_score,
-          conviction: pressure.conviction,
+          conviction: conviction,
 
           // Momentum engine
           momentum_state: momentum.momentum_state,
