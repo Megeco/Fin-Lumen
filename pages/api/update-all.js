@@ -112,13 +112,7 @@ export default async function handler(req, res) {
         conviction = "WEAK";
       }
 
-      if (
-  cycle2027.cycle_2027 === "SUPER CYCLE LEADER" &&
-  recommendation !== "AVOID" &&
-  conviction === "WEAK"
-) {
-  conviction = "STRONG";
-} 
+   
       
       // =========================================
       // EARLY WARNING ENGINE
@@ -164,6 +158,13 @@ export default async function handler(req, res) {
   pmp: result.pmp
 });
 
+         if (
+  cycle2027.cycle_2027 === "SUPER CYCLE LEADER" &&
+  recommendation !== "AVOID" &&
+  conviction === "WEAK"
+) {
+  conviction = "STRONG";
+} 
       // =========================================
       // DATABASE UPDATE
       // =========================================
