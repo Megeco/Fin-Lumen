@@ -33,6 +33,7 @@ export default async function handler(req, res) {
     const { data: stocks, error } = await supabase
       .from('stocks')
       .select('*');
+      .order('name', { ascending: true });
 
     if (error) {
       console.error("FETCH ERROR:", error);
