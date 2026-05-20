@@ -1,7 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-
-      // =========================================
-      // CONVICTION REFINEMENT
       // =========================================
 
       if (momentum.momentum_state === 'EARLY IGNITION') {
