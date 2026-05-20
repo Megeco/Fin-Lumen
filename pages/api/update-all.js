@@ -1,77 +1,74 @@
 import { createClient } from '@supabase/supabase-js';
+
+import { runAstroEngine } from '../../lib/astroEngine';
+import { runMacroEngine } from '../../lib/macroEngine';
+import { runCycleEngine } from '../../lib/cycleEngine';
+import { getEarlySignal } from '../../lib/earlyWarning';
+import { getNextWeekSignal } from '../../lib/nextWeekEngine';
+import { runPressureEngine } from '../../lib/pressureEngine';
+import { runMomentumEngine } from '../../lib/momentumEngine';
+import { run2027CycleEngine } from '../../lib/cycle2027Engine';
+import { getRecommendation } from '../../lib/recommendationEngine';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+const positionMap = {
+  ADD: "70–90%",
+  HOLD: "15–40%",
+  TRIM: "10–30%",
+  EXIT: "0–10%"
+};
+
+export default async function handler(req, res) {
+
+  try {
+
+    // =========================================
+    // FETCH STOCKS
+    // =========================================
+
+    const { data: stocks, error } = await supabase
+      .from('stocks')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('FETCH ERROR:', error);
+      return res.status(500).json({ error });
+    }
+
+    // =========================================
+    // GLOBAL MACRO
+    // =========================================
+
+    const macro = runMacroEngine();
+
+    // =========================================
+    // PROCESS STOCKS
+    // =========================================
+
+    for (let stock of stocks) {
+
+      // =========================================
+      // CORE ENGINES
       // =========================================
 
-      if (momentum.momentum_state === 'EARLY IGNITION') {
-        conviction = 'HIGH CONVICTION';
-      }
-
-      if (momentum.momentum_state === 'BASE BUILDING') {
-        conviction = 'BUILDING';
-      }
-
-      if (momentum.momentum_state === 'CONTROLLED EXPANSION') {
-        conviction = 'STRONG';
-      }
-
-      if (momentum.momentum_state === 'EXTENDED') {
-        conviction = 'CAUTION';
-      }
-
-      if (momentum.momentum_state === 'EXHAUSTED') {
-        conviction = 'WEAK';
-      }
+      const result = runAstroEngine(stock.name);
+      const cycle = runCycleEngine(stock.name);
+      const cycle2027 = run2027CycleEngine(stock.name);
 
       // =========================================
-      // RECOMMENDATION ENGINE
+      // FINAL POSITION ACTION
       // =========================================
 
-      const recommendation = getRecommendation({
-        cycle_2027: cycle2027.cycle_2027,
-        pressure_score: pressure.pressure_score,
-        momentum_state: momentum.momentum_state,
-        position_action: finalAction,
-        astro_window: result.astro_window,
-        pmp: result.pmp
-      });
+      let finalAction = result.position_action;
 
-      // =========================================
-      // DATABASE UPDATE
-      // =========================================
+      if (finalAction === 'EXIT') {
+        finalAction = 'TRIM';
+      }
 
-      const { error: updateError } = await supabase
-        .from('stocks')
-        .update({
-
-          // Astro Layer
-          week_bias: result.week_bias,
-          action_plan: result.action_plan,
-
-          // Positioning
-          position_action: finalAction,
-          positioning: positionMap[finalAction] || '15–40%',
-
-          // Timing
-          astro_window: result.astro_window,
-          pmp_forecast: result.pmp,
-
-          // Signal
-          signal: result.signal,
-
-          // Long-Term Thesis
-          long_term: cycle.long_term,
-          cycle_2027: cycle2027.cycle_2027,
-
-          // Recommendation
-          recommendation,
-
-          // Early Warning
-          early_signal: earlySignal,
-
-          // Next Week
-          next_week_signal: nextWeekSignal,
-
-          // Pressure Engine
-          pressure_score: pressure.pressure_score,
-
-          // Momentum Engine
+      if (cycle.long_term === 'EXIT') {
           momentum_state: momentum.momentum_stat
