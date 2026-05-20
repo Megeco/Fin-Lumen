@@ -47,24 +47,34 @@ export default async function handler(req, res) {
     for (const stock of stocks) {
 
       const astro = runAstroEngine(stock);
+
       const macro = runMacroEngine(stock);
-      const cycle = run2027CycleEngine(stock.name);
-      const early = getEarlySignal(stock);
-      const nextWeek = getNextWeekSignal(stock);
+
+      const cycle2027 = run2027CycleEngine(stock.name);
 
       const pressure = runPressureEngine({
         astro_window: astro.astro_window,
         macro_score: macro.macro_score,
-        cycle_alignment: cycle.cycle_alignment
+        cycle_2027: cycle2027.cycle_2027
       });
 
       const momentum = runMomentumEngine({
         astro_window: astro.astro_window,
-        cycle_alignment: cycle.cycle_alignment,
+        cycle_2027: cycle2027.cycle_2027,
         pressure_score: pressure.pressure_score
       });
 
-      const cycle2027 = run2027CycleEngine(stock.name);
+      const early = getEarlySignal({
+        astro_window: astro.astro_window,
+        pressure_score: pressure.pressure_score,
+        momentum_state: momentum.momentum_state
+      });
+
+      const nextWeek = getNextWeekSignal({
+        astro_window: astro.astro_window,
+        pmp: astro.pmp,
+        momentum_state: momentum.momentum_state
+      });
 
       // =========================================
       // ACTION LOGIC
@@ -72,15 +82,15 @@ export default async function handler(req, res) {
 
       let finalAction = "HOLD";
 
-      if (pressure.pressure_score >= 8) {
+      if (pressure.pressure_score <= 2) {
         finalAction = "ADD";
       }
 
-      else if (pressure.pressure_score >= 5) {
+      else if (pressure.pressure_score <= 5) {
         finalAction = "HOLD";
       }
 
-      else if (pressure.pressure_score >= 3) {
+      else if (pressure.pressure_score <= 7) {
         finalAction = "TRIM";
       }
 
@@ -141,7 +151,7 @@ export default async function handler(req, res) {
           week_bias: macro.week_bias,
           action_plan: macro.action_plan,
 
-          signal: cycle.signal,
+          signal: macro.signal,
           position_action: finalAction,
           position: positionMap[finalAction],
 
