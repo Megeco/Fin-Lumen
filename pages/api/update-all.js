@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 import { runAstroEngine } from '../../lib/astroEngine';
 import { runMacroEngine } from '../../lib/macroEngine';
-import { run2027CycleEngine } from '../../lib/cycle2027Engine';
 import { getEarlySignal } from '../../lib/earlyWarning';
 import { getNextWeekSignal } from '../../lib/nextWeekEngine';
 import { runPressureEngine } from '../../lib/pressureEngine';
