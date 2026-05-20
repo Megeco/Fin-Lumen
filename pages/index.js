@@ -6,7 +6,11 @@ export default function Home() {
   const fetchStocks = async () => {
     const res = await fetch("/api/get-stocks");
     const data = await res.json();
-    setStocks(data || []);
+    const sorted = (data || []).sort((a, b) =>
+  a.name.localeCompare(b.name)
+);
+
+setStocks(sorted);
   };
 
   const updateAll = async () => {
