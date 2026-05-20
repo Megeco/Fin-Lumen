@@ -8,6 +8,7 @@ import { runPressureEngine } from '../../lib/pressureEngine';
 import { runMomentumEngine } from '../../lib/momentumEngine';
 import { run2027CycleEngine } from '../../lib/cycle2027Engine';
 import { getRecommendation } from '../../lib/recommendationEngine';
+import { runAstroEventEngine } from '../../lib/astroEventEngine';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -51,6 +52,8 @@ export default async function handler(req, res) {
       const macro = runMacroEngine(stock);
 
       const cycle2027 = run2027CycleEngine(stock.name);
+
+      const astroEvent = runAstroEventEngine(stock.name);
 
       const pressure = runPressureEngine({
         astro_window: astro.astro_window,
@@ -165,7 +168,11 @@ export default async function handler(req, res) {
           conviction: conviction,
 
           recommendation: recommendation,
-
+          event_phase: astroEvent.event_phase,
+          event_warning: astroEvent.event_warning,
+          days_to_event: astroEvent.days_to_event,
+          volatility_risk: astroEvent.volatility_risk,
+          
           cycle_2027: cycle2027.cycle_2027
 
         })
