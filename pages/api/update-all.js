@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
       const astro = runAstroEngine(stock);
       const macro = runMacroEngine(stock);
-      const cycle = runCycleEngine(stock);
+      const cycle = run2027CycleEngine(stock.name);
       const early = getEarlySignal(stock);
       const nextWeek = getNextWeekSignal(stock);
 
