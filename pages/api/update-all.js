@@ -51,48 +51,53 @@ export default async function handler(req, res) {
       // CORE ENGINES
       // =========================================
 
-      const astro = runAstroEngine(stock);
+      // FIX 1: pass stock.name (string), not the full stock object
+      const astro = runAstroEngine(stock.name);
 
-      const macro = runMacroEngine(stock);
+      // FIX 2: runMacroEngine takes no arguments
+      const macro = runMacroEngine();
 
       const cycle2027 = run2027CycleEngine(stock.name);
 
       const astroEvent = runAstroEventEngine(stock.name);
 
       // =========================================
+      // ACTION LOGIC (needed before pressure/momentum)
+      // =========================================
+
+      // FIX 6: compute a preliminary action from astro so pressure engine
+      // receives position_action (it needs it before finalAction is set)
+      let preliminaryAction = astro.position_action;
+
+      // =========================================
       // PRESSURE ENGINE
       // =========================================
 
+      // FIX 3: pass the fields pressureEngine actually expects
       const pressure = runPressureEngine({
         astro_window: astro.astro_window,
-        macro_score: macro.macro_score,
-        cycle_2027: cycle2027.cycle_2027
+        pmp: astro.pmp,
+        position_action: preliminaryAction,
+        next_week_signal: null   // not yet computed; engine handles null gracefully
       });
 
       // =========================================
       // MOMENTUM ENGINE
       // =========================================
 
+      // FIX 4: pass the fields momentumEngine actually expects
       const momentum = runMomentumEngine({
         astro_window: astro.astro_window,
-        cycle_2027: cycle2027.cycle_2027,
-        pressure_score: pressure.pressure_score
-      });
-
-      // =========================================
-      // EARLY WARNING ENGINE
-      // =========================================
-
-      const early = getEarlySignal({
-        astro_window: astro.astro_window,
         pressure_score: pressure.pressure_score,
-        momentum_state: momentum.momentum_state
+        conviction: null,  // not yet available; engine defaults to EXHAUSTED
+        m_score: macro.macro_score
       });
 
       // =========================================
       // NEXT WEEK ENGINE
       // =========================================
 
+      // nextWeekEngine is now called after momentum so momentum_state is available
       const nextWeek = getNextWeekSignal({
         astro_window: astro.astro_window,
         pmp: astro.pmp,
@@ -100,9 +105,22 @@ export default async function handler(req, res) {
       });
 
       // =========================================
-      // ACTION LOGIC
+      // EARLY WARNING ENGINE
       // =========================================
 
+      // FIX 5: pass the fields earlyWarning actually expects
+      const early = getEarlySignal({
+        position_action: preliminaryAction,
+        astro_window: astro.astro_window,
+        pmp: astro.pmp
+      });
+
+      // =========================================
+      // FINAL ACTION LOGIC
+      // =========================================
+
+      // FIX 9: pressure_score is now a number (see pressureEngine fix),
+      // so numeric comparisons work correctly
       let finalAction = "HOLD";
 
       if (pressure.pressure_score <= 2) {
@@ -120,19 +138,6 @@ export default async function handler(req, res) {
       else {
         finalAction = "EXIT";
       }
-
-      // =========================================
-      // RECOMMENDATION ENGINE
-      // =========================================
-
-      const recommendation = getRecommendation({
-        cycle_2027: cycle2027.cycle_2027,
-        pressure_score: pressure.pressure_score,
-        momentum_state: momentum.momentum_state,
-        position_action: finalAction,
-        astro_window: astro.astro_window,
-        pmp: astro.pmp
-      });
 
       // =========================================
       // CONVICTION ENGINE
@@ -161,6 +166,19 @@ export default async function handler(req, res) {
       }
 
       // =========================================
+      // RECOMMENDATION ENGINE
+      // =========================================
+
+      const recommendation = getRecommendation({
+        cycle_2027: cycle2027.cycle_2027,
+        pressure_score: pressure.pressure_score,
+        momentum_state: momentum.momentum_state,
+        position_action: finalAction,
+        astro_window: astro.astro_window,
+        pmp: astro.pmp
+      });
+
+      // =========================================
       // DATABASE UPDATE
       // =========================================
 
@@ -177,16 +195,16 @@ export default async function handler(req, res) {
 
           // =====================================
           // MACRO
+          // FIX 8: use fields that macroEngine actually returns
           // =====================================
 
-          week_bias: macro.week_bias,
-          action_plan: macro.action_plan,
+          week_bias: macro.regime,
+          action_plan: macro.regime,
+          signal: macro.regime,
 
           // =====================================
           // SIGNALS
           // =====================================
-
-          signal: macro.signal,
 
           early_signal: early,
 
