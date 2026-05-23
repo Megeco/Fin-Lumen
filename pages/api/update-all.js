@@ -42,6 +42,12 @@ export default async function handler(req, res) {
     }
 
     // =========================================
+    // CURRENT TIMESTAMP
+    // =========================================
+
+    const currentTimestamp = new Date().toISOString();
+
+    // =========================================
     // PROCESS STOCKS
     // =========================================
 
@@ -240,7 +246,13 @@ export default async function handler(req, res) {
 
           days_to_event: astroEvent.days_to_event,
 
-          volatility_risk: astroEvent.volatility_risk
+          volatility_risk: astroEvent.volatility_risk,
+
+          // =====================================
+          // SYSTEM UPDATE TIMESTAMP
+          // =====================================
+
+          updated_at: currentTimestamp
 
         })
         .eq('id', stock.id);
@@ -253,7 +265,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      updated: stocks.length
+      updated: stocks.length,
+      timestamp: currentTimestamp
     });
 
   }
