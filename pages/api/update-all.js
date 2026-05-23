@@ -85,10 +85,12 @@ export default async function handler(req, res) {
       // MOMENTUM ENGINE
       // =========================================
 
-      // FIX 4: pass the fields momentumEngine actually expects
+      // FIX 4: momentumEngine uses string comparisons (=== "STABLE", === "BUILDING PRESSURE")
+      // so it must receive pressure_label (the string), NOT pressure_score (the number).
+      // Passing the number caused every momentum check to silently fail → always EXHAUSTED.
       const momentum = runMomentumEngine({
         astro_window: astro.astro_window,
-        pressure_score: pressure.pressure_score,
+        pressure_score: pressure.pressure_label,   // string label, e.g. "STABLE"
         conviction: null,  // not yet available; engine defaults to EXHAUSTED
         m_score: macro.macro_score
       });
