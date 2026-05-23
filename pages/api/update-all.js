@@ -259,23 +259,20 @@ export default async function handler(req, res) {
 
     }
 
-    // =========================================
-    // SUCCESS
-    // =========================================
+   // =========================================
+  // SUCCESS
+  // =========================================
 
-    return res.status(200).json({
-      success: true,
-      updated: stocks.length,
-      timestamp: currentTimestamp
-    });
+  console.log("FIN-LUMEN UPDATE COMPLETE");
+  console.log("UPDATED STOCK COUNT:", stocks.length);
+  console.log("TIMESTAMP:", currentTimestamp);
 
-  }
-
-  catch (err) {
-
-    return res.status(500).json({
-      error: err.message
-    });
+  return res.status(200).json({
+    success: true,
+    updated: stocks.length,
+    timestamp: currentTimestamp,
+    message: "Fin-Lumen update completed successfully"
+  });
 
   }
 
