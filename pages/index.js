@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 export default function Home() {
 
   const [stocks, setStocks] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState("-");
 
   // =========================================
   // FETCH STOCKS
@@ -10,7 +11,12 @@ export default function Home() {
 
   const fetchStocks = async () => {
 
-    const res = await fetch("/api/get-stocks");
+    const res = await fetch(
+      `/api/get-stocks?t=${Date.now()}`,
+      {
+        cache: "no-store"
+      }
+    );
 
     const data = await res.json();
 
@@ -20,6 +26,30 @@ export default function Home() {
 
     setStocks(sorted);
 
+    // =====================================
+    // GET LATEST TIMESTAMP
+    // =====================================
+
+    if (sorted.length > 0) {
+
+      const latestTimestamp = sorted.reduce((latest, stock) => {
+
+        if (!stock.updated_at) {
+          return latest;
+        }
+
+        const current = new Date(stock.updated_at).getTime();
+
+        return current > latest ? current : latest;
+
+      }, 0);
+
+      if (latestTimestamp) {
+        setLastUpdated(
+          new Date(latestTimestamp).toLocaleString()
+        );
+      }
+    }
   };
 
   // =========================================
@@ -28,13 +58,18 @@ export default function Home() {
 
   const updateAll = async () => {
 
-    await fetch("/api/update-all", {
-      method: "GET",
-      cache: "no-store"
-    });
+    await fetch(
+      `/api/update-all?t=${Date.now()}`,
+      {
+        method: "GET",
+        cache: "no-store"
+      }
+    );
+
+    // wait 1 second for db commit
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     fetchStocks();
-
   };
 
   // =========================================
@@ -46,7 +81,7 @@ export default function Home() {
   }, []);
 
   // =========================================
-  // RECOMMENDATION COLORS
+  // COLORS
   // =========================================
 
   const recommendationColors = {
@@ -57,28 +92,11 @@ export default function Home() {
     "CORE HOLD": "#2563eb",
     "STAGGERED ADD": "#06b6d4",
     "SATELLITE TRIM": "#f59e0b",
-    "DISTRIBUTE RALLIES": "#dc2626",
+    "DISTRIBUTE": "#dc2626",
     "AVOID": "#7f1d1d",
     "NEUTRAL": "#6b7280"
 
   };
-
-  // =========================================
-  // LATEST TIMESTAMP
-  // =========================================
-
-  const latestUpdate =
-    stocks.length > 0
-      ? new Date(
-          Math.max(
-            ...stocks.map((s) =>
-              s.updated_at
-                ? new Date(s.updated_at).getTime()
-                : 0
-            )
-          )
-        ).toLocaleString()
-      : "-";
 
   // =========================================
   // UI
@@ -95,7 +113,7 @@ export default function Home() {
       </button>
 
       <p>
-        Last Full System Update: {latestUpdate}
+        Last Full System Update: {lastUpdated}
       </p>
 
       <table
@@ -188,7 +206,5 @@ export default function Home() {
       </table>
 
     </div>
-
   );
-
 }
