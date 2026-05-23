@@ -26,9 +26,9 @@ export default async function handler(req, res) {
 
   try {
 
-    // =========================================
+    // =====================================
     // FETCH STOCKS
-    // =========================================
+    // =====================================
 
     const { data: stocks, error } = await supabase
       .from('stocks')
@@ -36,26 +36,19 @@ export default async function handler(req, res) {
       .order('name', { ascending: true });
 
     if (error) {
+      console.log("FETCH ERROR:", error);
       return res.status(500).json({
         error: error.message
       });
     }
 
-    // =========================================
-    // CURRENT TIMESTAMP
-    // =========================================
-
     const currentTimestamp = new Date().toISOString();
 
-    // =========================================
+    // =====================================
     // PROCESS STOCKS
-    // =========================================
+    // =====================================
 
     for (const stock of stocks) {
-
-      // =========================================
-      // CORE ENGINES
-      // =========================================
 
       const astro = runAstroEngine(stock);
 
@@ -65,19 +58,11 @@ export default async function handler(req, res) {
 
       const astroEvent = runAstroEventEngine(stock.name);
 
-      // =========================================
-      // PRESSURE ENGINE
-      // =========================================
-
       const pressure = runPressureEngine({
         astro_window: astro.astro_window,
         macro_score: macro.macro_score,
         cycle_2027: cycle2027.cycle_2027
       });
-
-      // =========================================
-      // MOMENTUM ENGINE
-      // =========================================
 
       const momentum = runMomentumEngine({
         astro_window: astro.astro_window,
@@ -85,19 +70,11 @@ export default async function handler(req, res) {
         pressure_score: pressure.pressure_score
       });
 
-      // =========================================
-      // EARLY WARNING ENGINE
-      // =========================================
-
       const early = getEarlySignal({
         astro_window: astro.astro_window,
         pressure_score: pressure.pressure_score,
         momentum_state: momentum.momentum_state
       });
-
-      // =========================================
-      // NEXT WEEK ENGINE
-      // =========================================
 
       const nextWeek = getNextWeekSignal({
         astro_window: astro.astro_window,
@@ -105,9 +82,9 @@ export default async function handler(req, res) {
         momentum_state: momentum.momentum_state
       });
 
-      // =========================================
+      // =====================================
       // ACTION LOGIC
-      // =========================================
+      // =====================================
 
       let finalAction = "HOLD";
 
@@ -127,9 +104,9 @@ export default async function handler(req, res) {
         finalAction = "EXIT";
       }
 
-      // =========================================
-      // RECOMMENDATION ENGINE
-      // =========================================
+      // =====================================
+      // RECOMMENDATION
+      // =====================================
 
       const recommendation = getRecommendation({
         cycle_2027: cycle2027.cycle_2027,
@@ -140,9 +117,9 @@ export default async function handler(req, res) {
         pmp: astro.pmp
       });
 
-      // =========================================
-      // CONVICTION ENGINE
-      // =========================================
+      // =====================================
+      // CONVICTION
+      // =====================================
 
       let conviction = "WEAK";
 
@@ -158,26 +135,20 @@ export default async function handler(req, res) {
         conviction = 'STRONG';
       }
 
-      else if (momentum.momentum_state === 'EXTENDED') {
-        conviction = 'CAUTION';
-      }
+      // =====================================
+      // UPDATE SUPABASE
+      // =====================================
 
-      else if (momentum.momentum_state === 'EXHAUSTED') {
-        conviction = 'WEAK';
-      }
-
-      // =========================================
-      // DATABASE UPDATE
-      // =========================================
-
-      await supabase
+      const { error: updateError } = await supabase
         .from('stocks')
         .update({
 
           astro_window: astro.astro_window,
+
           pmp: astro.pmp,
 
           week_bias: macro.week_bias,
+
           action_plan: macro.action_plan,
 
           signal: macro.signal,
@@ -187,9 +158,11 @@ export default async function handler(req, res) {
           next_week_signal: nextWeek,
 
           position_action: finalAction,
+
           position: positionMap[finalAction],
 
           pressure: pressure.pressure_label,
+
           pressure_score: pressure.pressure_score,
 
           momentum: momentum.momentum_state,
@@ -200,55 +173,56 @@ export default async function handler(req, res) {
 
           conviction: conviction,
 
-          structural_status: cycle2027.cycle_2027,
-
-          tactical_action: recommendation,
-
           recommendation: recommendation,
 
           cycle_2027: cycle2027.cycle_2027,
-
-          event_phase: astroEvent.event_phase,
-
-          event_warning: astroEvent.event_warning,
-
-          days_to_event: astroEvent.days_to_event,
-
-          volatility_risk: astroEvent.volatility_risk,
 
           updated_at: currentTimestamp
 
         })
         .eq('id', stock.id);
 
+      // =====================================
+      // DEBUG
+      // =====================================
+
+      if (updateError) {
+
+        console.log(
+          "SUPABASE UPDATE ERROR:",
+          stock.name,
+          updateError
+        );
+
+      } else {
+
+        console.log(
+          "UPDATED:",
+          stock.name
+        );
+
+      }
     }
 
-    // =========================================
+    // =====================================
     // SUCCESS
-    // =========================================
-
-    console.log("FIN-LUMEN UPDATE COMPLETE");
-    console.log("UPDATED STOCK COUNT:", stocks.length);
-    console.log("TIMESTAMP:", currentTimestamp);
+    // =====================================
 
     return res.status(200).json({
       success: true,
       updated: stocks.length,
-      timestamp: currentTimestamp,
-      message: "Fin-Lumen update completed successfully"
+      timestamp: currentTimestamp
     });
 
   }
 
   catch (err) {
 
-    console.error("FIN-LUMEN UPDATE ERROR:", err);
+    console.log("SERVER ERROR:", err);
 
     return res.status(500).json({
-      success: false,
       error: err.message
     });
 
   }
-
 }
