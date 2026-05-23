@@ -44,9 +44,16 @@ setStocks(sorted);
       <button onClick={updateAll}>🔄 Weekly Update</button>
 
       <p>
+  <p>
   Last Full System Update:{" "}
-  {stocks[0]?.updated_at
-    ? new Date(stocks[0].updated_at).toLocaleString()
+  {stocks.length > 0
+    ? new Date(
+        Math.max(
+          ...stocks.map((s) =>
+            s.updated_at ? new Date(s.updated_at).getTime() : 0
+          )
+        )
+      ).toLocaleString()
     : "-"}
 </p>
 
