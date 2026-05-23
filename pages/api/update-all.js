@@ -174,23 +174,11 @@ export default async function handler(req, res) {
         .from('stocks')
         .update({
 
-          // =====================================
-          // ASTRO
-          // =====================================
-
           astro_window: astro.astro_window,
           pmp: astro.pmp,
 
-          // =====================================
-          // MACRO
-          // =====================================
-
           week_bias: macro.week_bias,
           action_plan: macro.action_plan,
-
-          // =====================================
-          // SIGNALS
-          // =====================================
 
           signal: macro.signal,
 
@@ -198,23 +186,11 @@ export default async function handler(req, res) {
 
           next_week_signal: nextWeek,
 
-          // =====================================
-          // POSITIONING
-          // =====================================
-
           position_action: finalAction,
           position: positionMap[finalAction],
 
-          // =====================================
-          // PRESSURE
-          // =====================================
-
           pressure: pressure.pressure_label,
           pressure_score: pressure.pressure_score,
-
-          // =====================================
-          // MOMENTUM
-          // =====================================
 
           momentum: momentum.momentum_state,
 
@@ -224,10 +200,6 @@ export default async function handler(req, res) {
 
           conviction: conviction,
 
-          // =====================================
-          // STRUCTURAL + TACTICAL
-          // =====================================
-
           structural_status: cycle2027.cycle_2027,
 
           tactical_action: recommendation,
@@ -235,10 +207,6 @@ export default async function handler(req, res) {
           recommendation: recommendation,
 
           cycle_2027: cycle2027.cycle_2027,
-
-          // =====================================
-          // ASTRO EVENT WARNING
-          // =====================================
 
           event_phase: astroEvent.event_phase,
 
@@ -248,10 +216,6 @@ export default async function handler(req, res) {
 
           volatility_risk: astroEvent.volatility_risk,
 
-          // =====================================
-          // SYSTEM UPDATE TIMESTAMP
-          // =====================================
-
           updated_at: currentTimestamp
 
         })
@@ -259,20 +223,31 @@ export default async function handler(req, res) {
 
     }
 
-   // =========================================
-  // SUCCESS
-  // =========================================
+    // =========================================
+    // SUCCESS
+    // =========================================
 
-  console.log("FIN-LUMEN UPDATE COMPLETE");
-  console.log("UPDATED STOCK COUNT:", stocks.length);
-  console.log("TIMESTAMP:", currentTimestamp);
+    console.log("FIN-LUMEN UPDATE COMPLETE");
+    console.log("UPDATED STOCK COUNT:", stocks.length);
+    console.log("TIMESTAMP:", currentTimestamp);
 
-  return res.status(200).json({
-    success: true,
-    updated: stocks.length,
-    timestamp: currentTimestamp,
-    message: "Fin-Lumen update completed successfully"
-  });
+    return res.status(200).json({
+      success: true,
+      updated: stocks.length,
+      timestamp: currentTimestamp,
+      message: "Fin-Lumen update completed successfully"
+    });
+
+  }
+
+  catch (err) {
+
+    console.error("FIN-LUMEN UPDATE ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message
+    });
 
   }
 
