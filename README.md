@@ -186,3 +186,13 @@ Key changes:
 ## GitHub compact package
 
 This v34 compact build keeps the runtime app, data, tests, and the latest essential docs while pruning older historical build notes so the repository stays below GitHub's 100-file upload limit.
+
+
+## v35.1 UI + Full-Universe NVE Hardening
+
+- Chart selector is now a visible button strip in the expanded card.
+- Action badges are shortened to avoid wrapping/spillover.
+- Strong rerating / strong leader language is capped when TRM, sector fit, replay memory, or natal reliability do not support it.
+- Trent date typo fixed from 2052 to 1952.
+- `/api/natal-validation?all=1` scores the full built-in candidate universe automatically.
+- No composite charts are created; each candidate chart remains selectable and auditable.

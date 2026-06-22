@@ -66,6 +66,37 @@ function actionColor(action) {
   return actionVisual(action).color;
 }
 
+function shortActionLabel(action) {
+  const label = actionVisual(action).label;
+  const map = {
+    "HOLD CONSTRUCTIVE CORE": "Hold constructive",
+    "HOLD WINNER": "Hold winner",
+    "HOLD CORE": "Hold core",
+    "STAGGER ADD": "Stagger",
+    "WATCH CLOSELY": "Watch",
+    "AGGRESSIVE ACCUMULATION": "Aggressive",
+    "TRIM SATELLITE": "Trim",
+    "HEAVY TRIM": "Heavy trim",
+    "EXIT STRENGTH": "Exit strength",
+    "ACCUMULATE": "Accumulate"
+  };
+  return map[label] || label;
+}
+
+function shortStrategicLabel(action) {
+  const raw = String(action || "WATCHLIST ONLY").split(" — ")[0].trim();
+  const upper = raw.toUpperCase();
+  if (upper.includes("STRONG FORWARD LEADER")) return "Forward leader";
+  if (upper.includes("RALLY WITH CHURN")) return "Rally/churn";
+  if (upper.includes("WATCH")) return "Watch";
+  if (upper.includes("WAIT")) return "Wait";
+  if (upper.includes("PRESSURE")) return "Pressure first";
+  if (upper.includes("PROTECT")) return "Protect";
+  if (upper.includes("STAGGER")) return "Stagger";
+  return raw.length > 22 ? `${raw.slice(0, 21)}…` : raw;
+}
+
+
 function isCoreLocked(stock) {
   return Boolean(stock?.natal_locked || String(stock?.registry_type || "").toUpperCase() === "CORE" || stock?.registry_source === "built-in-registry");
 }
@@ -1183,7 +1214,7 @@ function ActionBadge({ action, compact = false }) {
       title={visual.label}
     >
       {visual.label === "AGGRESSIVE ACCUMULATION" ? <span aria-hidden="true">★</span> : null}
-      <span>{visual.label}</span>
+      <span>{compact ? shortActionLabel(action) : visual.label}</span>
     </span>
   );
 }
@@ -2254,15 +2285,15 @@ function ReplayDecisionTable({ summary, macro, tacticalWindow, strategicWindow, 
       <div style={actionChipRowStyle}>
         <div style={actionChipPanelStyle}>
           <div style={miniLabelStyle}>Core Posture</div>
-          <ActionBadge action={replayParts.corePosture} />
+          <ActionBadge action={replayParts.corePosture} compact />
         </div>
         <div style={actionChipPanelStyle}>
           <div style={miniLabelStyle}>Fresh Capital</div>
-          <ActionBadge action={replayParts.freshCapital} />
+          <ActionBadge action={replayParts.freshCapital} compact />
         </div>
         <div style={actionChipPanelStyle}>
           <div style={miniLabelStyle}>Strategic Action</div>
-          <span style={strategicChipStyle}>{String(resolved.strategicAction || "WATCHLIST ONLY").split(" — ")[0]}</span>
+          <span style={strategicChipStyle} title={String(resolved.strategicAction || "WATCHLIST ONLY")}>{shortStrategicLabel(resolved.strategicAction)}</span>
         </div>
       </div>
       <ReadableInfoTable rows={rows} />
@@ -3574,6 +3605,33 @@ function finalStockDecision(stock) {
     }
   }
 
+  const synthesisCap = finalSynthesisLabel(stock);
+  const capTrm = synthesisCap.trm || {};
+  const capReasons = [];
+  const weakTrm =
+    (capTrm.expression !== null && capTrm.expression < 60) ||
+    (capTrm.sector !== null && capTrm.sector < 45) ||
+    (capTrm.historicalEcho !== null && capTrm.historicalEcho <= 50) ||
+    (capTrm.natalReliability !== null && capTrm.natalReliability < 60) ||
+    String(capTrm.expressionClass || "").includes("WEAK") ||
+    String(capTrm.expressionClass || "").includes("PRESSURE");
+
+  if (capTrm.expression !== null && capTrm.expression < 60) capReasons.push(`TRM ${Math.round(capTrm.expression)}/100`);
+  if (capTrm.sector !== null && capTrm.sector < 45) capReasons.push("weak/unknown sector fit");
+  if (capTrm.historicalEcho !== null && capTrm.historicalEcho <= 50) capReasons.push("no replay memory");
+  if (capTrm.natalReliability !== null && capTrm.natalReliability < 60) capReasons.push("natal reliability below production grade");
+
+  if (weakTrm && /BUILDING RERATING|VOLATILE RERATING|STRONG FORWARD LEADER|HOLD WINNER/i.test(`${mainLabel} ${strategicAction} ${tacticalAction}`)) {
+    const capText = capReasons.length ? capReasons.join("; ") : "TRM/replay confidence cap";
+    mainLabel = `${synthesisCap.label.toUpperCase()} — ${synthesisCap.level}; strong rerating language capped (${capText})`;
+    if (/STRONG FORWARD LEADER/i.test(strategicAction)) {
+      strategicAction = `FORWARD LEADER CANDIDATE, CAPPED — ${capText}. Participate only through staggered/selective posture.`;
+    }
+    if (/STAGGER ADD|ACCUMULATE|AGGRESSIVE/i.test(tacticalAction)) {
+      tacticalAction = `STAGGER / SELECTIVE ONLY — ${capText}; wait for chart-specific confirmation before upgrading.`;
+    }
+  }
+
   return {
     mainLabel: formatDatesInText(mainLabel),
     tacticalAction: formatDatesInText(tacticalAction),
@@ -3909,13 +3967,13 @@ function NatalValidationPanel({ stock }) {
   if (!validation && !candidates.length) return null;
 
   return (
-    <div style={{ margin: "12px 0", padding: 14, borderRadius: 14, border: "1px solid #bfdbfe", background: "#eff6ff" }}>
-      <div style={miniLabelStyle}>Natal Validation + Chart Selector · v35</div>
-      <div style={{ fontWeight: 800, marginBottom: 6 }}>
-        Displayed chart: {best ? `${best.label || best.chartType} · ${validation?.selectionStatus || best.status || "Best current match"}` : "Candidate comparison pending"}
+    <div style={{ margin: "12px 0 16px", padding: 16, borderRadius: 16, border: "2px solid #2563eb", background: "#eff6ff", boxShadow: "0 8px 20px rgba(37,99,235,0.10)" }}>
+      <div style={{ ...miniLabelStyle, color: "#1d4ed8" }}>Chart View · Natal Validation + Chart Selector · v35.1</div>
+      <div style={{ fontWeight: 900, marginBottom: 6, fontSize: 15 }}>
+        Viewing: {shown ? `${chartLabel(shown)} · ${shown.date || "-"} · ${shown.status || shown.validationStatus || "CANDIDATE"}` : "Candidate comparison pending"}
       </div>
       <div style={{ ...smallMutedStyle, marginBottom: 10 }}>
-        No composite chart is created. The main table uses the best current astro-match; all chart candidates remain available for manual research.
+        Click a chart below to run a chart-specific replay preview. No composite chart is created; the main table uses the best current astro-match, while every candidate remains available for manual research.
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -3930,14 +3988,15 @@ function NatalValidationPanel({ stock }) {
                 border: active ? "2px solid #0f766e" : "1px solid #93c5fd",
                 background: active ? "#ccfbf1" : "#ffffff",
                 color: "#0f172a",
-                borderRadius: 999,
-                padding: "7px 10px",
-                fontWeight: 800,
-                cursor: "pointer"
+                borderRadius: 12,
+                padding: "9px 12px",
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: active ? "0 0 0 3px rgba(20,184,166,0.18)" : "0 1px 2px rgba(15,23,42,0.08)"
               }}
               title="Run this chart as a chart-specific replay view"
             >
-              {chartLabel(chart)} · {chart.selectionScore ?? "-"}
+              {active ? "✓ " : ""}{chartLabel(chart)} · {chart.selectionScore ?? "-"}
             </button>
           );
         })}
@@ -4073,19 +4132,19 @@ function StockDetailPanel({ stock, onClose }) {
         <div style={actionChipRowStyle}>
           <div style={actionChipPanelStyle}>
             <div style={miniLabelStyle}>Core Posture</div>
-            <ActionBadge action={resolvedActionParts(stock).corePosture} />
+            <ActionBadge action={resolvedActionParts(stock).corePosture} compact />
           </div>
           <div style={actionChipPanelStyle}>
             <div style={miniLabelStyle}>Fresh Capital</div>
-            <ActionBadge action={resolvedActionParts(stock).freshCapital} />
+            <ActionBadge action={resolvedActionParts(stock).freshCapital} compact />
           </div>
           <div style={actionChipPanelStyle}>
             <div style={miniLabelStyle}>Strategic Action</div>
-            <span style={strategicChipStyle}>{resolvedDecision.strategicAction.split(" — ")[0]}</span>
+            <span style={strategicChipStyle} title={resolvedDecision.strategicAction}>{shortStrategicLabel(resolvedDecision.strategicAction)}</span>
           </div>
         </div>
-        <SynthesisBox stock={stock} />
         <NatalValidationPanel stock={stock} />
+        <SynthesisBox stock={stock} />
         <ReratingRunwayBox runway={runway} />
         <ReadableInfoTable rows={decisionRows} />
       </div>
@@ -5191,8 +5250,8 @@ const pathGridStyle = {
 
 const actionChipRowStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 12,
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 8,
   marginBottom: 14
 };
 
@@ -5200,7 +5259,8 @@ const actionChipPanelStyle = {
   background: "#f8fafc",
   border: "1px solid #e5e7eb",
   borderRadius: 12,
-  padding: 12
+  padding: 10,
+  minWidth: 0
 };
 
 const strategicChipStyle = {
@@ -5208,8 +5268,12 @@ const strategicChipStyle = {
   background: "#dbeafe",
   color: "#1e3a8a",
   border: "1px solid #bfdbfe",
-  padding: "8px 11px",
-  fontSize: 12
+  padding: "6px 9px",
+  fontSize: 11,
+  whiteSpace: "nowrap",
+  maxWidth: "100%",
+  overflow: "hidden",
+  textOverflow: "ellipsis"
 };
 
 const detailPanelStyle = {
