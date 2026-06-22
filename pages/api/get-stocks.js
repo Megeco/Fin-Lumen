@@ -1,8 +1,9 @@
 import { db } from "../../lib/db.js";
 import { astroEngine } from "../../lib/astroEngine.js";
+import v35CandidateCharts from "../../lib/v35CandidateCharts.js";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const CACHE_KEY = "finlumen:get-stocks:v22";
+const CACHE_KEY = "finlumen:get-stocks:v35_2_full_universe";
 
 function getCacheStore() {
   if (!globalThis.__FINLUMEN_CACHE__) {
@@ -15,18 +16,9 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const FALLBACK_STOCKS = [
-  { name: "CUPID.NS" },
-  { name: "SUZLON.NS" },
-  { name: "BSE.NS" },
-  { name: "CDSL.NS" },
-  { name: "PERSISTENT.NS" },
-  { name: "HDFCBANK.NS" },
-  { name: "LT.NS" },
-  { name: "TITAN.NS" },
-  { name: "TRENT.NS" },
-  { name: "KAYNES.NS" }
-];
+const FALLBACK_STOCKS = Object.keys(v35CandidateCharts || {})
+  .sort()
+  .map(symbol => ({ name: symbol, symbol }));
 
 function normalizeRows(rows) {
   return rows

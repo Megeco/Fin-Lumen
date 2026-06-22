@@ -188,7 +188,7 @@ Key changes:
 This v34 compact build keeps the runtime app, data, tests, and the latest essential docs while pruning older historical build notes so the repository stays below GitHub's 100-file upload limit.
 
 
-## v35.1 UI + Full-Universe NVE Hardening
+## v35.2 UI + Full-Universe NVE Hardening
 
 - Chart selector is now a visible button strip in the expanded card.
 - Action badges are shortened to avoid wrapping/spillover.
@@ -196,3 +196,16 @@ This v34 compact build keeps the runtime app, data, tests, and the latest essent
 - Trent date typo fixed from 2052 to 1952.
 - `/api/natal-validation?all=1` scores the full built-in candidate universe automatically.
 - No composite charts are created; each candidate chart remains selectable and auditable.
+
+
+## v35.2 Story-State Language Lock
+
+This compact private build locks the Decision → Path → Research hierarchy.
+
+Key changes:
+- Story State appears before scores/actions: Fresh Ignition, Active Leadership, Mature/Fragile Leadership, Repair Phase, Dormant Capital, Breakdown Risk.
+- Main Label, Tactical Action, Strategic Action, Dormancy, Correction Mode and Paths are now story-compatible.
+- Strong rerating/leader language remains capped when TRM, replay memory, sector fit or natal reliability are not strong enough.
+- Chart selection is shown as a prominent button strip in the expanded card.
+- Fallback table now uses the full v35 candidate chart universe rather than the 10-stock demo list.
+- No composite charts. All chart candidates remain selectable for research comparison.

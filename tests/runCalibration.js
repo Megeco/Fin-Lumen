@@ -25,6 +25,7 @@ const sectorOntology = fs.readFileSync(path.join(root, "lib", "sectorOntology.js
 const natalValidationEngine = fs.readFileSync(path.join(root, "lib", "natalValidationEngine.js"), "utf8");
 const v35CandidateCharts = fs.readFileSync(path.join(root, "lib", "v35CandidateCharts.js"), "utf8");
 const natalValidationApi = fs.readFileSync(path.join(root, "pages", "api", "natal-validation.js"), "utf8");
+const getStocksApi = fs.readFileSync(path.join(root, "pages", "api", "get-stocks.js"), "utf8");
 
 const checks = [
   ["transition removed from raw pressure bucket", !realEphemeris.includes('["pressure", "transition", "volatility"].includes(item.type)')],
@@ -64,7 +65,9 @@ const checks = [
   ["v35 NVE engine present", natalValidationEngine.includes("evaluateNatalValidation") && natalValidationEngine.includes("No composite charts")],
   ["v35 candidate registry ignores legacy remarks", v35CandidateCharts.includes("legacy remarks are intentionally ignored") && v35CandidateCharts.includes("AIAENG.NS")],
   ["v35 natal validation API present", natalValidationApi.includes("/api/natal-validation") && natalValidationApi.includes("evaluateNatalValidation")],
-  ["v35 chart selector UI present", index.includes("Natal Validation + Chart Selector") && index.includes("No composite chart is created")]
+  ["v35 chart selector UI present", index.includes("Natal Validation + Chart Selector") && index.includes("No composite chart is created")],
+  ["v35.2 story state language present", index.includes("Story State") && index.includes("FRESH IGNITION") && index.includes("DORMANT CAPITAL")],
+  ["v35.2 full fallback universe present", getStocksApi.includes("v35CandidateCharts") && getStocksApi.includes("Object.keys(v35CandidateCharts")]
 
 ];
 

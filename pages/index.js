@@ -86,8 +86,8 @@ function shortActionLabel(action) {
 function shortStrategicLabel(action) {
   const raw = String(action || "WATCHLIST ONLY").split(" — ")[0].trim();
   const upper = raw.toUpperCase();
-  if (upper.includes("STRONG FORWARD LEADER")) return "Forward leader";
-  if (upper.includes("RALLY WITH CHURN")) return "Rally/churn";
+  if (upper.includes("STRONG FORWARD LEADER") || upper.includes("FORWARD LEADER")) return "Forward leader";
+  if (upper.includes("RALLY WITH CHURN")) return "Churn / hold";
   if (upper.includes("WATCH")) return "Watch";
   if (upper.includes("WAIT")) return "Wait";
   if (upper.includes("PRESSURE")) return "Pressure first";
@@ -3632,7 +3632,40 @@ function finalStockDecision(stock) {
     }
   }
 
+  const story = storyStateForStock(stock);
+
+  if (story.key === "BREAKDOWN_RISK") {
+    mainLabel = `BREAKDOWN RISK — protect capital before looking for fresh opportunity`;
+    tacticalAction = `HEAVY TRIM — capital protection is the priority until the pressure window clears.`;
+    strategicAction = `PRESSURE FIRST — reassess only after repair is visible.`;
+    capitalPosture = `Core: protect capital; fresh capital waits.`;
+    primaryBucket = "PRESSURE";
+  } else if (story.key === "REPAIR_PHASE" && /BUILDING RERATING|STRONG FORWARD LEADER|ACCUMULATE/i.test(`${mainLabel} ${tacticalAction} ${strategicAction}`)) {
+    mainLabel = `REPAIR PHASE — wait for pressure/catalyst absorption before upgrading`;
+    tacticalAction = `WATCH CLOSELY — potential exists, but fresh capital waits for a cleaner trigger.`;
+    strategicAction = `PRESSURE FIRST — future support may appear, but current timing is not deployment-grade.`;
+    capitalPosture = `Core: hold only if conviction remains; fresh capital waits for repair.`;
+    primaryBucket = "DORMANT";
+  } else if (story.key === "DORMANT_CAPITAL" && /STRONG FORWARD LEADER|BUILDING RERATING|STAGGER ADD|ACCUMULATE/i.test(`${mainLabel} ${tacticalAction} ${strategicAction}`)) {
+    mainLabel = `DORMANT CAPITAL — future setup exists, but timing is early`;
+    tacticalAction = `WATCH CLOSELY — avoid tying up fresh capital before the mapped support window.`;
+    strategicAction = `DEFERRED LEADER — keep on priority watchlist; wait for the mapped window.`;
+    capitalPosture = `Core: hold if already positioned; fresh capital waits.`;
+    primaryBucket = "DORMANT";
+  } else if (story.key === "FRAGILE_LEADERSHIP") {
+    mainLabel = mainLabel.replace(/BUILDING RERATING/, "FRAGILE LEADERSHIP").replace(/HIGH-VOLTAGE LEADER/, "FRAGILE LEADERSHIP");
+    tacticalAction = tacticalAction.replace(/STAGGER ADD/, "STAGGER ADD").replace(/HOLD WINNER/, "HOLD WINNER");
+    strategicAction = storyCompatibleStrategicLabel(strategicAction, story);
+    capitalPosture = capitalPosture || `Core: hold; fresh capital only in staggered tranches.`;
+  } else if (story.key === "FRESH_IGNITION" && !/capped|Supportive but muted|Pressure absorption/i.test(mainLabel)) {
+    mainLabel = mainLabel.replace(/BUILDING RERATING/, "FRESH IGNITION").replace(/EARLY WINDOW \/ CONFIRMATION NEEDED/, "FRESH IGNITION — confirmation still needed");
+    strategicAction = storyCompatibleStrategicLabel(strategicAction, story);
+  } else {
+    strategicAction = storyCompatibleStrategicLabel(strategicAction, story);
+  }
+
   return {
+    storyState: story,
     mainLabel: formatDatesInText(mainLabel),
     tacticalAction: formatDatesInText(tacticalAction),
     strategicAction: formatDatesInText(strategicAction),
@@ -3728,12 +3761,116 @@ function finalSynthesisLabel(stock) {
   return { label, level, capReason, driver: trmDriverType(stock), trm };
 }
 
+function storyStateForStock(stock) {
+  const state = stockPressureExpansionState(stock);
+  const trm = trmScoresForStock(stock);
+  const tactical = tacticalScoreValue(stock) ?? 5;
+  const strategic = strategicScoreValue(stock) ?? 5;
+  const dormancy = capitalDormancyRiskValue(stock);
+  const pressure = state.pressure ?? 50;
+  const expansion = state.expansion ?? 50;
+  const leadership = state.leadership ?? 50;
+  const forward = state.forwardLeadership ?? leadership;
+  const correction = String(correctionModeValue(stock) || "").toUpperCase();
+  const hard = hardPressureActive(stock);
+  const trmClass = String(trm.expressionClass || "");
+
+  const pressureDominates = pressure >= 72 && pressure > expansion + 8;
+  const expansionDominates = expansion >= pressure - 4 && leadership >= 60;
+  const strongExpansion = expansion >= 72 && leadership >= 68;
+  const highVolatilityLeadership = strongExpansion && pressure >= 55 && pressure < 82;
+  const futureOnly = strategic >= 7.2 && tactical < 6.0;
+
+  if (hard || correction.includes("BREAK") || (pressure >= 84 && pressure > expansion)) {
+    return {
+      key: "BREAKDOWN_RISK",
+      label: "BREAKDOWN RISK",
+      plain: "Capital protection comes first until the pressure window clears.",
+      tone: "pressure"
+    };
+  }
+
+  if (pressureDominates || trmClass.includes("PRESSURE")) {
+    return {
+      key: "REPAIR_PHASE",
+      label: "REPAIR PHASE",
+      plain: "Pressure is active first; wait for repair or a cleaner support trigger before adding.",
+      tone: "pressure"
+    };
+  }
+
+  if (["HIGH", "VERY HIGH"].includes(dormancy) || futureOnly) {
+    return {
+      key: "DORMANT_CAPITAL",
+      label: "DORMANT CAPITAL",
+      plain: "Future potential exists, but fresh capital may sit idle until the mapped window arrives.",
+      tone: "moderate"
+    };
+  }
+
+  if (highVolatilityLeadership) {
+    return {
+      key: "FRAGILE_LEADERSHIP",
+      label: "FRAGILE LEADERSHIP",
+      plain: "Expansion is active, but pressure changes the texture: participate carefully and protect only excess.",
+      tone: "moderate"
+    };
+  }
+
+  if (strongExpansion && tactical >= 7.2 && strategic >= 7.2 && (trm.expression ?? 50) >= 60) {
+    return {
+      key: "ACTIVE_LEADERSHIP",
+      label: "ACTIVE LEADERSHIP",
+      plain: "Leadership is active; do not overtrade normal volatility.",
+      tone: "high"
+    };
+  }
+
+  if (expansionDominates && tactical >= 6.2) {
+    return {
+      key: "FRESH_IGNITION",
+      label: "FRESH IGNITION",
+      plain: "Accumulation conditions are opening, but deployment should still be staggered.",
+      tone: "high"
+    };
+  }
+
+  return {
+    key: "REPAIR_PHASE",
+    label: "REPAIR PHASE",
+    plain: "Potential exists, but the chart needs cleaner confirmation before fresh capital is prioritised.",
+    tone: "neutral"
+  };
+}
+
+function storyCompatibleStrategicLabel(text, story) {
+  const raw = String(text || "");
+  if (!raw) return raw;
+  if (story.key === "FRAGILE_LEADERSHIP") {
+    return raw
+      .replace(/RALLY WITH CHURN/g, "RALLY WITH CHURN — participate carefully; expect shakeouts")
+      .replace(/STRONG FORWARD LEADER/g, "FORWARD LEADER CANDIDATE");
+  }
+  if (story.key === "DORMANT_CAPITAL") {
+    return raw.replace(/STRONG FORWARD LEADER/g, "DEFERRED LEADER");
+  }
+  if (story.key === "REPAIR_PHASE") {
+    return raw
+      .replace(/STRONG FORWARD LEADER/g, "PRESSURE FIRST")
+      .replace(/RALLY WITH CHURN/g, "REPAIR FIRST");
+  }
+  return raw.replace(/RALLY WITH CHURN/g, "RALLY WITH CHURN — participate carefully; expect shakeouts");
+}
+
 function dadSummaryText(stock) {
   const syn = finalSynthesisLabel(stock);
   const parts = resolvedActionParts(stock);
+  const story = storyStateForStock(stock);
   const pressure = pressureWindowText(stock);
   const trm = syn.trm;
-  const sectorPhrase = trm.sector !== null && trm.sector < 45 ? "This is not a clean sector-wide rerating setup" : "The sector/receptor fit is usable";
+  const sectorPhrase = trm.sector !== null && trm.sector < 45
+    ? "This is chart/natal-led, not a clean sector-wide rerating setup"
+    : "The sector/receptor fit is usable";
   const pressurePhrase = trm.pressure !== null && trm.pressure >= 65
     ? "pressure is high, so fresh capital should wait or be protected"
     : "pressure is manageable if position size is disciplined";
@@ -3742,7 +3879,7 @@ function dadSummaryText(stock) {
     parts.freshCapital === "ACCUMULATE" ? "add gradually, not in one shot" :
     parts.freshCapital.toLowerCase();
 
-  return `Hold existing exposure according to core conviction. For fresh capital, ${fresh}. ${sectorPhrase}; the main driver is ${syn.driver.toLowerCase()} and ${pressurePhrase}. Review around ${pressure}.`;
+  return `${story.plain} Hold existing exposure according to core conviction. For fresh capital, ${fresh}. ${sectorPhrase}; the main driver is ${syn.driver.toLowerCase()} and ${pressurePhrase}. Review around ${pressure}.`;
 }
 
 function synthesisBullets(stock) {
@@ -3762,6 +3899,24 @@ function synthesisBullets(stock) {
   if (syn.capReason) cautions.push(syn.capReason);
 
   return { positives: positives.length ? positives : ["No strong positive driver displayed yet."], cautions: cautions.length ? cautions : ["No major contradiction displayed by the synthesis layer."] };
+}
+
+function StoryStateBox({ stock }) {
+  const story = storyStateForStock(stock);
+  const toneStyle = {
+    high: { border: "2px solid #86efac", background: "#f0fdf4", color: "#166534" },
+    moderate: { border: "2px solid #fde68a", background: "#fffbeb", color: "#92400e" },
+    pressure: { border: "2px solid #fecaca", background: "#fef2f2", color: "#991b1b" },
+    neutral: { border: "2px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8" }
+  }[story.tone || "neutral"];
+
+  return (
+    <div style={{ margin: "12px 0", padding: "12px 14px", borderRadius: 14, ...toneStyle }}>
+      <div style={miniLabelStyle}>Story State</div>
+      <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 0.4 }}>{story.label}</div>
+      <div style={{ marginTop: 5, lineHeight: 1.45 }}>{story.plain}</div>
+    </div>
+  );
 }
 
 function SynthesisBox({ stock }) {
@@ -3968,12 +4123,12 @@ function NatalValidationPanel({ stock }) {
 
   return (
     <div style={{ margin: "12px 0 16px", padding: 16, borderRadius: 16, border: "2px solid #2563eb", background: "#eff6ff", boxShadow: "0 8px 20px rgba(37,99,235,0.10)" }}>
-      <div style={{ ...miniLabelStyle, color: "#1d4ed8" }}>Chart View · Natal Validation + Chart Selector · v35.1</div>
+      <div style={{ ...miniLabelStyle, color: "#1d4ed8" }}>Choose Chart View · Natal Validation + Chart Selector · v35.2</div>
       <div style={{ fontWeight: 900, marginBottom: 6, fontSize: 15 }}>
         Viewing: {shown ? `${chartLabel(shown)} · ${shown.date || "-"} · ${shown.status || shown.validationStatus || "CANDIDATE"}` : "Candidate comparison pending"}
       </div>
       <div style={{ ...smallMutedStyle, marginBottom: 10 }}>
-        Click a chart below to run a chart-specific replay preview. No composite chart is created; the main table uses the best current astro-match, while every candidate remains available for manual research.
+        Click any chart button to compare that chart. No composite chart is created. The main table uses the best current astro-match, while every candidate stays available for manual research.
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -3989,14 +4144,14 @@ function NatalValidationPanel({ stock }) {
                 background: active ? "#ccfbf1" : "#ffffff",
                 color: "#0f172a",
                 borderRadius: 12,
-                padding: "9px 12px",
+                padding: "10px 14px",
                 fontWeight: 900,
                 cursor: "pointer",
                 boxShadow: active ? "0 0 0 3px rgba(20,184,166,0.18)" : "0 1px 2px rgba(15,23,42,0.08)"
               }}
               title="Run this chart as a chart-specific replay view"
             >
-              {active ? "✓ " : ""}{chartLabel(chart)} · {chart.selectionScore ?? "-"}
+              {active ? "✓ " : ""}{chartLabel(chart)} · score {chart.selectionScore ?? "-"}
             </button>
           );
         })}
@@ -4053,6 +4208,7 @@ function StockDetailPanel({ stock, onClose }) {
   const strategicPathRows = buildStrategicPathRows(stock);
 
   const decisionRows = [
+    ["Story state", `${resolvedDecision.storyState?.label || storyStateForStock(stock).label} — ${resolvedDecision.storyState?.plain || storyStateForStock(stock).plain}`],
     ["Final synthesis", `${synthesis.label}: ${synthesis.level} · Driver: ${synthesis.driver}`],
     ["Natal validation", stock.natal_validation_summary || (stock.natal_validation?.bestChart ? `${stock.natal_validation.bestChart.label || stock.natal_validation.bestChart.chartType} · ${stock.natal_validation.selectionStatus || "-"} · score ${stock.natal_validation.bestChart.selectionScore}/100` : "-")],
     ["Main label", resolvedDecision.mainLabel],
@@ -4129,21 +4285,22 @@ function StockDetailPanel({ stock, onClose }) {
             <div>{registryLine}</div>
           </div>
         </div>
+        <StoryStateBox stock={stock} />
+        <NatalValidationPanel stock={stock} />
         <div style={actionChipRowStyle}>
           <div style={actionChipPanelStyle}>
-            <div style={miniLabelStyle}>Core Posture</div>
+            <div style={miniLabelStyle}>Core</div>
             <ActionBadge action={resolvedActionParts(stock).corePosture} compact />
           </div>
           <div style={actionChipPanelStyle}>
-            <div style={miniLabelStyle}>Fresh Capital</div>
+            <div style={miniLabelStyle}>Fresh</div>
             <ActionBadge action={resolvedActionParts(stock).freshCapital} compact />
           </div>
           <div style={actionChipPanelStyle}>
-            <div style={miniLabelStyle}>Strategic Action</div>
+            <div style={miniLabelStyle}>Strategic</div>
             <span style={strategicChipStyle} title={resolvedDecision.strategicAction}>{shortStrategicLabel(resolvedDecision.strategicAction)}</span>
           </div>
         </div>
-        <NatalValidationPanel stock={stock} />
         <SynthesisBox stock={stock} />
         <ReratingRunwayBox runway={runway} />
         <ReadableInfoTable rows={decisionRows} />
@@ -5250,17 +5407,18 @@ const pathGridStyle = {
 
 const actionChipRowStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
   gap: 8,
-  marginBottom: 14
+  marginBottom: 12
 };
 
 const actionChipPanelStyle = {
   background: "#f8fafc",
   border: "1px solid #e5e7eb",
   borderRadius: 12,
-  padding: 10,
-  minWidth: 0
+  padding: "8px 10px",
+  minWidth: 0,
+  overflow: "hidden"
 };
 
 const strategicChipStyle = {
@@ -5271,6 +5429,7 @@ const strategicChipStyle = {
   padding: "6px 9px",
   fontSize: 11,
   whiteSpace: "nowrap",
+  display: "inline-block",
   maxWidth: "100%",
   overflow: "hidden",
   textOverflow: "ellipsis"
