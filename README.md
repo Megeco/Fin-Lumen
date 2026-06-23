@@ -1,3 +1,13 @@
+# Fin-Lumen v35.5 — Astro Window + Capital Posture
+
+v35.5 keeps the astrology window firm while separating it from sizing discipline.
+
+- Story State now states the astro window (for example: EARLY ACCUMULATION WINDOW).
+- Capital posture controls sizing/pace (Watch, Stagger, Accumulate, Protect).
+- Weak/background TRM no longer says broad 'fresh allocation not favoured' when the wider cycle read is constructive; it says selective/staggered only.
+- Pressure/rotation TRM still keeps capital-protection language.
+- Replay preview is softened into chart-specific caution rather than a contradictory decision.
+
 # Fin-Lumen Pure Astro v35.4 — Macro Shift + Clean Testing Patch
 
 
