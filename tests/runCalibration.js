@@ -61,7 +61,7 @@ const checks = [
   ["v34 rerating language capped by TRM", index.includes("high rerating language is capped by TRM") && index.includes("Natal-led constructive setup")],
   ["v34 hold winner tiered ladder present", index.includes("HOLD CONSTRUCTIVE CORE") && index.includes("activeLeader = leadership >= 75")],
   ["v34 scanner driver type present", index.includes("finalSynthesisLabel(stock).driver")],
-  ["v34 long-range cycle potential separated from usability", index.includes("Long-range cycle potential") && index.includes("Current usability")],
+  ["v35.3 thesis strength separated from current capital usability", index.includes("2026–28 Thesis Strength") && index.includes("Current Capital Usability")],
   ["v35 NVE engine present", natalValidationEngine.includes("evaluateNatalValidation") && natalValidationEngine.includes("No composite charts")],
   ["v35 candidate registry ignores legacy remarks", v35CandidateCharts.includes("legacy remarks are intentionally ignored") && v35CandidateCharts.includes("AIAENG.NS")],
   ["v35 natal validation API present", natalValidationApi.includes("/api/natal-validation") && natalValidationApi.includes("evaluateNatalValidation")],

@@ -1,4 +1,5 @@
-# Fin-Lumen v35 — Natal Validation + Chart Selector
+# Fin-Lumen Pure Astro v35.4 — Macro Shift + Clean Testing Patch
+
 
 # Fin-Lumen v35 — Natal Validation + Chart Selector
 
@@ -209,3 +210,22 @@ Key changes:
 - Chart selection is shown as a prominent button strip in the expanded card.
 - Fallback table now uses the full v35 candidate chart universe rather than the 10-stock demo list.
 - No composite charts. All chart candidates remain selectable for research comparison.
+
+
+## v35.3 Micro Patch — Thesis Strength + New Stock Natal Entry
+
+- Core astrology logic is frozen for testing.
+- Display language now separates `2026–28 Thesis Strength` from `Current Capital Usability`.
+- Extreme cycle potential is preserved as horizon conviction for mapped multibagger candidates; it no longer overrides current timing discipline.
+- New user-added stocks can be added from the UI, then natal date/time/place can be saved through the Natal Registry Editor.
+- Saving natal data appends/updates chart candidates instead of overwriting existing candidates, so every new chart becomes eligible for automated NVE scoring and Chart Selector comparison.
+
+
+## v35.4 Patch
+
+- Splits macro display into Current Macro Environment and Next Macro Shift.
+- Current Macro Environment now shows active-now weather only.
+- Next Macro Shift contains incoming events, with a nested Next 30 Days section and Beyond 30 Days section.
+- Softens repetitive expanded-card language for repair/watch setups.
+- Keeps 2026–28 Thesis Strength separate from Current Capital Usability.
+- Suppresses duplicate constructive observer boxes unless a true rerating runway is present.

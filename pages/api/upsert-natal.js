@@ -85,7 +85,49 @@ export default async function handler(req, res) {
   };
 
   const supabase = createClient(url, key);
-  const { error } = await supabase.from("natal_registry").upsert(payload, { onConflict: "symbol" });
-  if (error) return res.status(500).json({ success: false, error: error.message, hint: "Run the supplied natal_registry migration in Supabase SQL editor, then retry.", createTableSql: CREATE_TABLE_SQL, attemptedPayload: payload });
-  return res.status(200).json({ success: true, saved: payload, resolvedChart: chart });
+
+  // v35.3: adding a new chart should not erase existing chart candidates.
+  // Fetch the existing row, update/append the selected chart, then save the
+  // full candidate list back to natal_registry. This keeps new stocks and new
+  // chart options immediately available to NVE + Chart Selector.
+  const { data: existing, error: existingError } = await supabase
+    .from("natal_registry")
+    .select("*")
+    .eq("symbol", symbol)
+    .maybeSingle();
+
+  if (existingError && existingError.code !== "PGRST116") {
+    return res.status(500).json({
+      success: false,
+      error: existingError.message,
+      hint: "Could not read existing natal_registry row before saving.",
+      createTableSql: CREATE_TABLE_SQL,
+      attemptedPayload: payload
+    });
+  }
+
+  const existingCharts = Array.isArray(existing?.charts) ? existing.charts : [];
+  const nextCharts = [
+    ...existingCharts.filter(item => String(item?.id || item?.chartId || item?.chart_id) !== String(chart.id)),
+    chart
+  ];
+
+  const mergedPayload = {
+    ...payload,
+    company_name: payload.company_name || existing?.company_name || symbol,
+    charts: nextCharts,
+    preferred_chart_id: clean(body.preferredChartId || body.preferred_chart_id || existing?.preferred_chart_id || chartId),
+    incorporation_date: payload.incorporation_date || existing?.incorporation_date || null,
+    listing_date: payload.listing_date || existing?.listing_date || null
+  };
+
+  const { error } = await supabase.from("natal_registry").upsert(mergedPayload, { onConflict: "symbol" });
+  if (error) return res.status(500).json({ success: false, error: error.message, hint: "Run the supplied natal_registry migration in Supabase SQL editor, then retry.", createTableSql: CREATE_TABLE_SQL, attemptedPayload: mergedPayload });
+  return res.status(200).json({
+    success: true,
+    saved: mergedPayload,
+    resolvedChart: chart,
+    chartCount: nextCharts.length,
+    note: "Saved. This stock/chart is now eligible for automated NVE scoring and Chart Selector comparison."
+  });
 }

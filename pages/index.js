@@ -266,7 +266,13 @@ function mappedWindowTimingLabel(stock) {
 }
 
 function selectedStockFrom(stocks, selectedStockId) {
-  return stocks.find(item => String(stockKey(item)) === String(selectedStockId)) || null;
+  const target = String(selectedStockId || "").toUpperCase();
+  return stocks.find(item =>
+    String(stockKey(item)) === String(selectedStockId) ||
+    String(item?.name || "").toUpperCase() === target ||
+    String(item?.symbol || "").toUpperCase() === target ||
+    String(item?.ticker || "").toUpperCase() === target
+  ) || null;
 }
 
 export default function Home() {
@@ -521,14 +527,33 @@ export default function Home() {
           onClick={async () => {
             if (!newStock) return;
 
+            const ticker = String(newStock || "").toUpperCase().trim();
+
             await fetch("/api/add-stock", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: newStock })
+              body: JSON.stringify({ name: ticker })
             });
 
             setNewStock("");
-            await fetchStocks();
+            setSelectedStock(ticker);
+            setNatalForm(prev => ({
+              ...prev,
+              symbol: ticker,
+              companyName: ticker,
+              chartId: "incorporation",
+              chartType: "incorporation",
+              birthDate: "",
+              birthTime: "11:00",
+              city: "",
+              country: "India",
+              timezone: "Asia/Kolkata",
+              confidence: "low",
+              auditStatus: "manual-entry",
+              source: "manual Fin-Lumen entry"
+            }));
+            setNatalSaveMessage("Stock added. Add natal date, time and place below, then Save Natal Data to activate NVE/chart selection.");
+            await fetchStocks(true);
           }}
           style={buttonStyle("#16a34a")}
         >
@@ -597,7 +622,7 @@ export default function Home() {
 
       <CollapsibleSection
         title="Macro Astro Environment"
-        subtitle="Current macro weather and the next 30-day transit map."
+        subtitle="Current active macro weather and the next macro shift."
         defaultOpen
       >
         <div style={macroGridStyle}>
@@ -800,7 +825,7 @@ function ReadableEventCard({ event, title }) {
     <div style={{ ...readableCardStyle, background: toneColor(event.tone), borderLeft: `5px solid ${toneBorder(event.tone)}` }}>
       {title ? <div style={miniLabelStyle}>{title}</div> : null}
       <strong>{event.label || "Macro event"}</strong>
-      <div style={smallMutedStyle}>{event.timing || event.date || "timing pending"}{event.exactIst ? ` · IST ${String(event.exactIst).replace("T", " ").slice(0, 16)}` : ""}</div>
+      <div style={smallMutedStyle}>{event.timing || event.date || "timing pending"}{macroEventDays(event) !== null && macroEventDays(event) > 0 ? " · incoming" : ""}{event.exactIst ? ` · IST ${String(event.exactIst).replace("T", " ").slice(0, 16)}` : ""}</div>
       <div style={{ marginTop: 6 }}>{event.meaning || event.behaviour || event.notes || "Monitor stock-specific natal contacts."}</div>
     </div>
   );
@@ -1033,11 +1058,6 @@ function MacroPanel({ environment, activeEvents, researchView }) {
 
         <CompactSky positions={positions} />
 
-        <div style={twoColumnStyle}>
-          <ReadableEventCard event={readable.mainOpportunity} title="Main opportunity" />
-          <ReadableEventCard event={readable.mainRisk} title="Main risk" />
-        </div>
-
         <div style={insightBoxStyle}>
           <strong>What this means for stocks:</strong>
           <div style={{ marginTop: 6 }}>{readable.stockImplication || narrative.likelyBehaviour || "Stock-specific natal contacts decide the behaviour."}</div>
@@ -1139,22 +1159,107 @@ function macroTransitExpectation(event = {}) {
   return event.meaning || event.behaviour || event.notes || "Monitor stock-specific natal contacts; macro weather alone is not a stock signal.";
 }
 
+
+function macroShiftItems(environment, nextMacro, futureTransits) {
+  const readable = environment?.macroReadable || {};
+  const analytics = environment?.macroAnalytics || {};
+  const pool = [
+    ...(Array.isArray(readable.next30Days) ? readable.next30Days : []),
+    ...(Array.isArray(environment?.macroCards?.incomingCards) ? environment.macroCards.incomingCards : []),
+    ...(Array.isArray(futureTransits) ? futureTransits : []),
+    readable.mainRisk ? { ...readable.mainRisk, _role: "risk" } : null,
+    readable.mainOpportunity ? { ...readable.mainOpportunity, _role: "opportunity" } : null,
+    nextMacro || null,
+    ...(Array.isArray(analytics.eventClusters) ? analytics.eventClusters.map(c => ({
+      label: c.labels?.join(" + ") || "Macro cluster",
+      timing: c.date || c.timing,
+      date: c.date,
+      daysRemaining: c.daysRemaining,
+      tone: "volatility",
+      _role: "cluster",
+      behaviour: "Cluster gate: multiple macro events are crowded; expect amplification in stocks whose natal charts are hit."
+    })) : [])
+  ].filter(Boolean)
+    .map(event => ({ ...event, _days: macroEventDays(event), _roleClass: macroEventRole(event) }))
+    .filter(event => event._days !== null && event._days >= 0 && event._days <= 90);
+
+  const seen = new Set();
+  return pool
+    .sort((a, b) => {
+      const aw = macroEventRoleWeight(a);
+      const bw = macroEventRoleWeight(b);
+      if (bw !== aw) return bw - aw;
+      return (a._days ?? 999) - (b._days ?? 999);
+    })
+    .filter(event => {
+      const key = `${macroEventName(event)}-${Math.round(event._days ?? 999)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function macroEventRoleWeight(event) {
+  const role = macroEventRole(event);
+  if (role === "eclipse") return 8;
+  if (role === "crisis") return 7;
+  if (role === "pressure") return 6;
+  if (role === "retrograde") return 5;
+  if (role === "expansion") return 5;
+  if (role === "support") return 4;
+  return 2;
+}
+
+function firstMacroByRole(events, roles) {
+  return (events || []).find(event => roles.includes(macroEventRole(event))) || null;
+}
+
 function NextMacroPanel({ nextMacro, futureTransits, environment, researchView }) {
   const readable = environment?.macroReadable || {};
-  const next30 = readable.next30Days || [];
-  const in30 = next30.filter(event => {
-    const days = macroEventDays(event);
-    return days !== null && days >= 0 && days <= 30;
-  });
-  const main = in30[0] || nextMacro || readable.mainOpportunity || next30[0];
+  const allIncoming = macroShiftItems(environment, nextMacro, futureTransits);
+  const next30 = allIncoming.filter(event => event._days !== null && event._days >= 0 && event._days <= 30);
+  const beyond30 = allIncoming.filter(event => event._days !== null && event._days > 30 && event._days <= 90);
+  const primaryRisk = firstMacroByRole(allIncoming, ["crisis", "pressure", "retrograde", "eclipse"]);
+  const primaryOpportunity = firstMacroByRole(allIncoming, ["expansion", "support"]);
 
   return (
     <div style={cardStyle("#f9fafb")}>
-      <h2 style={cardTitleStyle}>✨ Next 30 Days</h2>
+      <h2 style={cardTitleStyle}>✨ Next Macro Shift</h2>
 
       <div style={lineGridStyle}>
-        <ReadableEventCard event={main} title="Primary window" />
-        <MacroForwardWatch environment={environment} />
+        <div style={insightBoxStyle}>
+          <strong>Incoming macro shift:</strong>
+          <div style={{ marginTop: 6 }}>
+            Future events are shown here, not inside the current macro weather. Exactness timing means “incoming in”, not “active for”.
+          </div>
+        </div>
+
+        <div style={twoColumnStyle}>
+          <ReadableEventCard event={primaryRisk} title="Incoming risk" />
+          <ReadableEventCard event={primaryOpportunity} title="Upcoming opportunity" />
+        </div>
+
+        <div>
+          <h3 style={{ margin: "4px 0 8px" }}>Next 30 Days</h3>
+          {next30.length ? (
+            <div style={lineGridStyle}>
+              <MacroForwardWatch environment={environment} />
+            </div>
+          ) : (
+            <div style={stableBoxStyle}>No major macro shift is exacting in the next 30 days.</div>
+          )}
+        </div>
+
+        {beyond30.length ? (
+          <div>
+            <h3 style={{ margin: "4px 0 8px" }}>Beyond 30 Days</h3>
+            <div style={miniEventListStyle}>
+              {beyond30.slice(0, 3).map((event, index) => (
+                <ReadableEventCard key={`${macroEventName(event)}-${index}`} event={event} title={index === 0 ? "Next major opportunity / risk" : undefined} />
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {researchView ? (
           <div>
@@ -1168,7 +1273,6 @@ function NextMacroPanel({ nextMacro, futureTransits, environment, researchView }
     </div>
   );
 }
-
 
 function ActionShape({ visual, size = 16 }) {
   const base = {
@@ -1899,7 +2003,7 @@ function reconcileReplayScoresAndActions(resolved) {
     tacticalAction = `WATCH CLOSELY — tactical idea exists, but score remains selective (${tacticalScore.toFixed(1)}/10).`;
   }
   if (/STRONG LEADER|FORWARD LEADER|PRIORITY/i.test(strategicAction) && strategicScore < 6.5) {
-    strategicAction = `RALLY WITH CHURN — participate selectively; strategic score is not yet leader-grade.`;
+    strategicAction = `DEVELOPING / NOT CONFIRMED — strategic score is not yet leader-grade.`;
   }
   if (/WATCHLIST ONLY|MATURE \/ SELECTIVE/i.test(strategicAction) && strategicScore >= 6.8) {
     strategicAction = `CONTROLLED FORWARD LEADER — durability is visible; add only through pressure absorption / supportive natal contacts.`;
@@ -3249,9 +3353,11 @@ function buildTacticalPathRows(stock) {
   });
   const baseIso = stockPathBaseIso(stock);
   const actionText = `${decision.mainLabel} ${decision.tacticalAction} ${decision.strategicAction}`;
+  const story = storyStateForStock(stock);
   const pressureMode = /HIGH PRESSURE|BREAK PRESSURE|PRESSURE FIRST|TRIM SATELLITE|HEAVY TRIM/i.test(actionText);
   const leaderMode = /STRONG FORWARD LEADER|HOLD WINNER|BUILDING RERATING|Near-window rerating/i.test(actionText) && !pressureMode;
-  const watchMode = !pressureMode && !leaderMode;
+  const freshIgnitionMode = story.key === "FRESH_IGNITION" && !pressureMode && !leaderMode;
+  const watchMode = !pressureMode && !leaderMode && !freshIgnitionMode;
 
   const phrases = pressureMode
     ? [
@@ -3271,14 +3377,23 @@ function buildTacticalPathRows(stock) {
           `Add only around fresh supportive astro windows; avoid chasing if the window has already run vertically.`,
           `Tactical durability checkpoint: hold winner while dormancy stays low and no high/break pressure appears.`
         ]
-      : [
-          `Watch/repair setup into ${catalyst} — ${timing}. Fresh capital waits for supportive natal contact, not technical confirmation.`,
-          `Catalyst absorption week: expect churn/delay; only small pilot sizing if leadership improves astrologically.`,
-          `Post-catalyst review: do not upgrade to rerating unless expansion contacts dominate pressure contacts.`,
-          `Repair scan: keep this on watchlist capital; avoid turning moderate cycle potential into deployment.`,
-          `Dormancy control: capital can stay idle unless the next natal support window arrives.`,
-          `Tactical checkpoint: upgrade only when leadership score and astro contact quality both improve.`
-        ];
+      : freshIgnitionMode
+        ? [
+            `Early ignition into ${catalyst} — ${timing}. Use small staggered capital only after the natal contact absorbs.`,
+            `Catalyst absorption week: expect noise; upgrade only if leadership and support contacts improve together.`,
+            `Confirmation check: keep core intact; fresh capital stays selective until expansion clearly leads pressure.`,
+            `Follow-through scan: avoid chasing if the window moves too quickly before confirmation.`,
+            `Selective add checkpoint: use only fresh supportive astro windows, not hope from the long-range thesis alone.`,
+            `Tactical checkpoint: continue only if dormancy stays low and no high/break pressure appears.`
+          ]
+        : [
+            `Watch/repair setup into ${catalyst} — ${timing}. Fresh capital waits for supportive natal contact, not technical confirmation.`,
+            `Catalyst absorption week: expect churn/delay; only small pilot sizing if leadership improves astrologically.`,
+            `Post-catalyst review: do not upgrade to rerating unless expansion contacts dominate pressure contacts.`,
+            `Repair scan: keep this on watchlist capital; avoid turning moderate cycle potential into deployment.`,
+            `Dormancy control: capital can stay idle unless the next natal support window arrives.`,
+            `Tactical checkpoint: upgrade only when leadership score and astro contact quality both improve.`
+          ];
 
   return phrases.map((text, index) => [weekRangeLabel(index, baseIso), formatDatesInText(text)]);
 }
@@ -3292,8 +3407,10 @@ function buildStrategicPathRows(stock) {
   const bestIso = extractFirstIsoDate(accumulation);
   const pressureIso = extractFirstIsoDate(pressure) || stock?.catalyst_date || isoFromDaysAhead(stock?.days_to_event ?? stock?.next_ignition, baseIso);
   const actionText = `${decision.mainLabel} ${decision.tacticalAction} ${decision.strategicAction}`;
+  const story = storyStateForStock(stock);
   const pressureMode = /HIGH PRESSURE|BREAK PRESSURE|PRESSURE FIRST|TRIM SATELLITE|HEAVY TRIM/i.test(actionText);
   const leaderMode = /STRONG FORWARD LEADER|HOLD WINNER|BUILDING RERATING|Near-window rerating/i.test(actionText) && !pressureMode;
+  const freshIgnitionMode = story.key === "FRESH_IGNITION" && !pressureMode && !leaderMode;
   const forward = parseForwardLeadership(stock);
   const dormancy = capitalDormancyRiskValue(stock);
 
@@ -3310,7 +3427,7 @@ function buildStrategicPathRows(stock) {
       else if (index === 1) text = `Post-pressure repair month: reassess only if the hard natal contact has absorbed and leadership stops weakening.`;
       else if (index <= 3) text = `Natal repair scan: ${accumulation} Use only as a review gate unless pressure has clearly yielded to supportive expansion contacts.`;
       else if (index <= 5) text = `Fresh capital gate: no strategic deployment unless a new growth window appears. ${growth}`;
-      else text = `Long-range context only: ${accumulation} Do not treat the distant cycle as an immediate buy signal.`;
+      else text = `2026–28 thesis context only: ${accumulation} Do not treat the distant cycle as an immediate buy signal.`;
     } else if (leaderMode) {
       if (index === 0 && (pressureInMonth || bestInMonth)) text = `Active leadership month: ${growth} Hold winner / stagger fresh capital; protect only blow-off excess around the pressure window.`;
       else if (index === 1) text = `Leadership continuation month: keep core while dormancy remains ${String(dormancy).toLowerCase()} and no high/break pressure appears.`;
@@ -3323,7 +3440,7 @@ function buildStrategicPathRows(stock) {
       else if (index === 1) text = `Second-month repair scan: upgrade only if supportive natal contacts appear and leadership rises above candidate threshold.`;
       else if (index <= 3) text = `Cycle watch only: ${growth} Keep this as watchlist capital until the astro field improves.`;
       else if (index <= 5) text = `Dormancy control: avoid hopeful deployment if leadership remains mixed or weak.`;
-      else text = `Long-range cycle background only: no immediate rerating window is confirmed.`;
+      else text = `2026–28 thesis background only: no immediate rerating window is confirmed.`;
     }
 
     return [label, formatDatesInText(text)];
@@ -3536,19 +3653,19 @@ function finalStockDecision(stock) {
     if (deployableNow) {
       mainLabel = `BUILDING RERATING — stagger entry; tactical window is active, protect only excess around ${pressureWhen}`;
       tacticalAction = `STAGGER ADD — active window forming; deploy gradually, not vertically.`;
-      strategicAction = strongForward ? `STRONG FORWARD LEADER — mapped window ${best}.` : `RALLY WITH CHURN — participate through normal/medium pressure; protect excess only.`;
+      strategicAction = strongForward ? `STRONG FORWARD LEADER — mapped window ${best}.` : `PARTICIPATE SELECTIVELY — expansion is usable, but expect shakeouts; protect only excess.`;
       capitalPosture = `Core: hold/add through current expansion; fresh capital should be staggered. Do not defer only because a later window looks cleaner.`;
       primaryBucket = "TACTICAL";
     } else if (earlyButUnclean) {
       mainLabel = `EARLY WINDOW / CONFIRMATION NEEDED — stagger only after the natal contact turns supportive`;
       tacticalAction = `STAGGER CAREFULLY — early window visible, but leadership is not yet winner-grade (${Math.round(leadership)}/100).`;
-      strategicAction = strongForward ? `SELECTIVE FORWARD LEADER — mapped window ${best}; wait for astro confirmation before sizing up.` : `RALLY WITH CHURN — usable but not priority; protect excess only.`;
+      strategicAction = strongForward ? `SELECTIVE FORWARD LEADER — mapped window ${best}; wait for astro confirmation before sizing up.` : `DEVELOPING / NOT CONFIRMED — usable but not priority; protect excess only.`;
       capitalPosture = `Core: hold selectively; fresh capital only in small tranches after supportive natal contact.`;
       primaryBucket = "GENERAL";
     } else {
       mainLabel = `REPAIR WATCH — accumulation may be opening, but leadership is not astrologically confirmed`;
       tacticalAction = `WATCH CLOSELY — wait for catalyst absorption in the natal chart (${tacticalScoreNum.toFixed(1)}/10; leadership ${Math.round(leadership)}/100).`;
-      strategicAction = strategicScoreNum >= 6.5 ? `RALLY WITH CHURN — potential exists, but wait for supportive natal contacts before upgrading it to a rerating window.` : `WAIT FOR NATAL SUPPORT — not a strategic leader yet.`;
+      strategicAction = strategicScoreNum >= 6.5 ? `DEVELOPING / NOT CONFIRMED — potential exists, but wait for supportive natal contacts before upgrading.` : `WAIT FOR NATAL SUPPORT — not a strategic leader yet.`;
       capitalPosture = `Core: hold only if already positioned; fresh capital waits for confirmation.`;
       primaryBucket = "GENERAL";
     }
@@ -3580,7 +3697,7 @@ function finalStockDecision(stock) {
     tacticalAction = `WATCH CLOSELY — pressure/score guardrail active (${tacticalScoreNum.toFixed(1)}/10; leadership ${Math.round(leadership)}/100).`;
   }
   if (/PRIORITY|STRONG FORWARD LEADER/i.test(strategicAction) && strategicScoreNum < 6.5) {
-    strategicAction = `RALLY WITH CHURN — participate selectively; strategic score is not yet leader-grade.`;
+    strategicAction = `DEVELOPING / NOT CONFIRMED — strategic score is not yet leader-grade.`;
   }
 
   // v30.04A final-label consistency guard. LOW/MEDIUM pressure belongs to the
@@ -3846,40 +3963,43 @@ function storyStateForStock(stock) {
 function storyCompatibleStrategicLabel(text, story) {
   const raw = String(text || "");
   if (!raw) return raw;
+  const softenChurn = value => value
+    .replace(/RALLY WITH CHURN — participate carefully; expect shakeouts/g, "PARTICIPATE SELECTIVELY — expect shakeouts")
+    .replace(/RALLY WITH CHURN/g, "PARTICIPATE SELECTIVELY");
   if (story.key === "FRAGILE_LEADERSHIP") {
-    return raw
-      .replace(/RALLY WITH CHURN/g, "RALLY WITH CHURN — participate carefully; expect shakeouts")
-      .replace(/STRONG FORWARD LEADER/g, "FORWARD LEADER CANDIDATE");
+    return softenChurn(raw).replace(/STRONG FORWARD LEADER/g, "FORWARD LEADER CANDIDATE");
   }
   if (story.key === "DORMANT_CAPITAL") {
-    return raw.replace(/STRONG FORWARD LEADER/g, "DEFERRED LEADER");
+    return softenChurn(raw).replace(/STRONG FORWARD LEADER/g, "DEFERRED LEADER");
   }
   if (story.key === "REPAIR_PHASE") {
-    return raw
+    return softenChurn(raw)
       .replace(/STRONG FORWARD LEADER/g, "PRESSURE FIRST")
-      .replace(/RALLY WITH CHURN/g, "REPAIR FIRST");
+      .replace(/PARTICIPATE SELECTIVELY/g, "REPAIR FIRST");
   }
-  return raw.replace(/RALLY WITH CHURN/g, "RALLY WITH CHURN — participate carefully; expect shakeouts");
+  return softenChurn(raw);
 }
 
 function dadSummaryText(stock) {
   const syn = finalSynthesisLabel(stock);
   const parts = resolvedActionParts(stock);
-  const story = storyStateForStock(stock);
   const pressure = pressureWindowText(stock);
   const trm = syn.trm;
   const sectorPhrase = trm.sector !== null && trm.sector < 45
-    ? "This is chart/natal-led, not a clean sector-wide rerating setup"
-    : "The sector/receptor fit is usable";
+    ? "This is chart/natal-led rather than a clean sector-wide rerating setup"
+    : "Sector/receptor fit is usable";
   const pressurePhrase = trm.pressure !== null && trm.pressure >= 65
-    ? "pressure is high, so fresh capital should wait or be protected"
-    : "pressure is manageable if position size is disciplined";
-  const fresh = parts.freshCapital === "STAGGER ADD" ? "add only slowly" :
-    parts.freshCapital === "WATCH CLOSELY" ? "wait for a cleaner trigger before adding" :
+    ? "pressure is high, so fresh capital waits for repair"
+    : "pressure is manageable if sizing stays disciplined";
+  const core = ["TRIM SATELLITE", "HEAVY TRIM", "EXIT STRENGTH"].includes(parts.corePosture)
+    ? "protect or reduce excess exposure"
+    : "hold existing core according to conviction";
+  const fresh = parts.freshCapital === "STAGGER ADD" ? "use small staggered tranches" :
+    parts.freshCapital === "WATCH CLOSELY" ? "wait for a cleaner trigger" :
     parts.freshCapital === "ACCUMULATE" ? "add gradually, not in one shot" :
     parts.freshCapital.toLowerCase();
 
-  return `${story.plain} Hold existing exposure according to core conviction. For fresh capital, ${fresh}. ${sectorPhrase}; the main driver is ${syn.driver.toLowerCase()} and ${pressurePhrase}. Review around ${pressure}.`;
+  return `Core: ${core}. Fresh capital: ${fresh}. ${sectorPhrase}; driver is ${syn.driver.toLowerCase()} and ${pressurePhrase}. Review around ${pressure}.`;
 }
 
 function synthesisBullets(stock) {
@@ -3898,7 +4018,10 @@ function synthesisBullets(stock) {
   if ((trm.natalReliability ?? 100) < 60) cautions.push(`Natal reliability is below production-grade (${Math.round(trm.natalReliability)}/100).`);
   if (syn.capReason) cautions.push(syn.capReason);
 
-  return { positives: positives.length ? positives : ["No strong positive driver displayed yet."], cautions: cautions.length ? cautions : ["No major contradiction displayed by the synthesis layer."] };
+  return {
+    positives: positives.length ? positives : ["No clean current positive catalyst; use the story state and fresh-capital gate first."],
+    cautions: cautions.length ? cautions : ["No major contradiction displayed by the synthesis layer."]
+  };
 }
 
 function StoryStateBox({ stock }) {
@@ -3953,12 +4076,12 @@ function cyclePotentialDisplay(stock) {
   const raw = String(stock.cycle_multibagger_potential || stock.multibagger_probability || "-").toUpperCase();
   const score = stock.cycle_potential_score ? ` · score ${stock.cycle_potential_score}` : "";
   const trm = trmScoresForStock(stock);
-  const currentUsability =
-    (trm.pressure ?? 0) >= 65 ? "Current usability: restraint/protection" :
-    (trm.expression ?? 0) >= 70 ? "Current usability: constructive" :
-    (trm.expression ?? 0) >= 55 ? "Current usability: staggered/selective" :
-    "Current usability: watch";
-  return `Long-range cycle potential: ${raw}${score}. ${currentUsability}.`;
+  const usability =
+    (trm.pressure ?? 0) >= 65 ? "Protect / restraint" :
+    (trm.expression ?? 0) >= 70 ? "Constructive" :
+    (trm.expression ?? 0) >= 55 ? "Stagger / selective" :
+    "Watch";
+  return `2026–28 Thesis Strength: ${raw}${score}. Current Capital Usability: ${usability}.`;
 }
 
 function reratingRunwayObserver(stock) {
@@ -4052,7 +4175,7 @@ function reratingRunwayObserver(stock) {
 }
 
 function ReratingRunwayBox({ runway }) {
-  if (!runway) return null;
+  if (!runway || runway.tone !== "teal") return null;
   const isTeal = runway.tone === "teal";
   const isAmber = runway.tone === "amber";
   return (
@@ -4065,7 +4188,7 @@ function ReratingRunwayBox({ runway }) {
       color: isTeal ? "#134e4a" : isAmber ? "#92400e" : "#374151"
     }}>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
-        {isTeal ? "Rerating Runway Observer" : isAmber ? "Constructive Setup Observer" : "Cycle Watch Observer"}
+        Rerating Runway Observer
       </div>
       <div style={{ fontWeight: 800, marginBottom: 4 }}>{runway.title}: {runway.level}</div>
       <div style={{ fontSize: 13, lineHeight: 1.45 }}>{runway.reason}</div>
@@ -4123,7 +4246,7 @@ function NatalValidationPanel({ stock }) {
 
   return (
     <div style={{ margin: "12px 0 16px", padding: 16, borderRadius: 16, border: "2px solid #2563eb", background: "#eff6ff", boxShadow: "0 8px 20px rgba(37,99,235,0.10)" }}>
-      <div style={{ ...miniLabelStyle, color: "#1d4ed8" }}>Choose Chart View · Natal Validation + Chart Selector · v35.2</div>
+      <div style={{ ...miniLabelStyle, color: "#1d4ed8" }}>Choose Chart View · Natal Validation + Chart Selector · v35.4</div>
       <div style={{ fontWeight: 900, marginBottom: 6, fontSize: 15 }}>
         Viewing: {shown ? `${chartLabel(shown)} · ${shown.date || "-"} · ${shown.status || shown.validationStatus || "CANDIDATE"}` : "Candidate comparison pending"}
       </div>
@@ -4240,7 +4363,7 @@ function StockDetailPanel({ stock, onClose }) {
     ["Immediate tactical text", resolvedDecision.tacticalAction],
     ["Tactical leadership", tacticalLeadershipLabel(stock)],
     ["Strategic leadership", strategicLeadershipLabel(stock)],
-    ["Cycle potential", cyclePotentialDisplay(stock)],
+    ["2026–28 Thesis / Current Usability", cyclePotentialDisplay(stock)],
     ["Current pressure", stock.current_pressure || "-"],
     ["Capital dormancy risk", dormancyRiskText(stock, { full: true })],
     ["Correction mode", correctionModeText(stock, { full: true })],
